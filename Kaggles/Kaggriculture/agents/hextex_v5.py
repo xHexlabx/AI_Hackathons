@@ -563,13 +563,8 @@ class Brain:
         claimed: set = set()
         actions: list[list] = []
         new_targets: dict[int, tuple] = {}
-        stay, sticky, zone_b, dp = (
-            self.p["stay_bonus"],
-            self.p["sticky_bonus"],
-            self.p["zone_bonus"],
-            self.p["dist_penalty"],
-        )
-        zones = getattr(self, "zones", {})
+        # NOTE: v5 computed zones but never applied them in the scoring (fixed in v6)
+        stay, sticky = self.p["stay_bonus"], self.p["sticky_bonus"]
         for i, pos in enumerate(units):
             inv = invs[i] if i < len(invs) else {}
             best, best_score = None, -(10**9)
