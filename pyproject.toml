@@ -49,7 +49,7 @@ packages = ["common"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["*.ipynb", "templates/**/*.py.tmpl"]
+extend-exclude = ["*.ipynb", "templates/**/*.py.tmpl", "**/agents/reference/*.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "N", "W"]
@@ -57,8 +57,8 @@ select = ["E", "F", "I", "UP", "B", "SIM", "N", "W"]
 [tool.ruff.lint.per-file-ignores]
 # simulation tooling prints wide tables; agents are single-file submissions
 "**/sim/*.py" = ["E501"]
-"**/agents/*.py" = ["E501"]
-"**/main.py" = ["E501"]
+"**/agents/*.py" = ["E501", "SIM113", "SIM114"]
+"**/main.py" = ["E501", "SIM113", "SIM114"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["common"]

@@ -1,0 +1,51 @@
+Kaggriculture Reference Agents -- licensing notice
+=================================================
+
+WHAT IS LICENSED HOW
+--------------------
+
+  *.py                  MIT (see LICENSE)
+  *.csv, description    CC BY-SA 4.0
+
+The .py files were originally published under CC BY-SA 4.0. That was a mistake for
+code, for two reasons. No Creative Commons licence except CC0 is OSI-approved, and
+Kaggriculture's rules require that open source code used to build a submission be under
+an OSI-approved licence. More importantly, ShareAlike is copyleft: building a submission
+on a BY-SA file arguably obliges you to license the adapted work BY-SA, which then
+collides with that same requirement. Creative Commons themselves advise against using CC
+licences for software.
+
+The MIT grant is in addition to the earlier one, not instead of it. CC BY-SA 4.0 is
+irrevocable, so anyone who took these files under it keeps that option; MIT simply
+removes the obstacle for anyone building a submission.
+
+SCOPE -- PLEASE READ IF YOU ARE REUSING TIERS 6-9
+-------------------------------------------------
+
+Tiers 0-5 (fallow_finn, wheat_walter, rotation_rosa, homestead_hana, melon_mateo,
+rancher_rita) are original work by the dataset author and are MIT in full.
+
+Tiers 6-9 (broker_bea, ledger_lena, slotter_silas, closer_cleo) are not entirely the
+author's work, and the MIT grant is correspondingly narrower. What is covered: the
+market/SELL layer, the scheduler, and everything else written around the plan. What is
+NOT covered: the base85-encoded `_TRACE` field plan each of those files embeds.
+
+That plan is the shared public meta line, not anyone's original contribution.
+Running scripts/cross_team_identity.py over 530 downloaded public replays finds identical
+712-turn farmer/hand sequences played by large groups of unrelated teams -- one group of
+29 teams, another of 15, another of 8, with 104 distinct teams appearing in at least one
+shared plan. No individual team is credited because the line demonstrably belongs to
+none of them, and the author will not claim a licence over it either. It is reconstructible
+from public replay data by anyone who wants it, and it reaches you on whatever terms the
+competition's own rules provide.
+
+If that ambiguity matters for your use, build on tiers 0-5. They are the documented
+teaching ladder, and they are unambiguously yours to use.
+
+THE ENVIRONMENT
+---------------
+
+Every measurement in this dataset was produced with kaggle-environments 1.32.7
+(Apache-2.0), https://github.com/Kaggle/kaggle-environments. The agents restate small
+factual tables from that environment (crop costs, animal yields, price-curve parameters)
+so that each file is dependency-free.

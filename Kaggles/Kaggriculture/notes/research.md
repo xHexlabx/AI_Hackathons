@@ -113,3 +113,49 @@ leaving, carry enough wheat per trip.
 - [ ] Late-game: stop buying geese after day 18; stop COLLECT when fertiliser < $15.
 - [ ] Sweep: `open_geese`, `open_melons`, `geese_cap`, `max_hands`, `dist_penalty`, `zone_bonus`.
 - [ ] Download top replays from the Kaggle episode API and inspect what the leaders do.
+
+## 7. What the ladder taught us (2026-09-12, after the first public game)
+
+Our first ladder game (episode 107962160): **$45.5k vs $94k** (opponent: 7 cows + 66 strawberries).
+The community dataset (`georgymamarin/kaggriculture-episodes`) shows the whole field plays a ~$85-95k
+line; top-rated seats average $100-120k; the record is ~$215k. The geese economy of v6 is simply the
+wrong economy.
+
+**The money is in the town.** Each shop instance drains 6/day of every product it wants (12 for a
+single-product shop). Strawberry is wanted by 4 of the 8 shop types, milk by 3, wool by 1 (x2).
+Undersupplied premium goods climb to **$250-340** (milk $334, strawberry $264, wool $246 in real games);
+oversupplied ones crash to $1 within days (glut side is linear/quadratic).
+
+**Meta field plan** (the `broker_bea` reference agent replays a fixed 712-turn trace shared by 100+ teams):
+day 0: 3 cows + 1 sheep + 7 melons + 10 wheat, every coin spent; cows 8 / sheep 6 by day 12;
+strawberries 2 (day 5) -> 40 (day 15); land on days 8 and 11 (3 quadrants only); 12 hands from day 9;
+melons replanted through day 21; sells fertiliser/wheat immediately, premium goods with a reserve price.
+Result: ~$95-107k in a mirror, $110-130k against weaker farms.
+
+**Reference agents** (MIT, `agents/reference/`, dataset `raykkretzschmar/kaggriculture-reference-agents`)
+are now our sparring ladder: fallow_finn ($3k) ... rancher_rita ($46k) ... broker_bea ($164k expected).
+
+### Our versions against that ladder (8 games, seats swapped, mean $)
+
+| version | vs starter | vs v6 | vs v7 | mirror | vs broker_bea | notes |
+|---|---|---|---|---|---|---|
+| v6 (geese) | 53k | – | – | 30k | – | ladder game: 45k vs 94k |
+| v7 | 102k | 79k (100% win) | – | 89k | 66k vs 114k (0-8) | cows + strawberries + reserve pricing |
+| v8 | – | – | 78k (62%) | 74k | 66k vs 114k | all-in opening, demand-sized herds |
+| v9 | – | – | 77k (12%) | 70k | 67k vs 113k | opponent-aware reserve, evening dump |
+| **v10 = main.py** | see README | see README | **79k vs 67k (100%)** | 68k | 62k vs 89k (0-8) | parallel reinvestment, melon 2nd wave, wheat cap |
+
+### Why Bea still wins (revenue_report.py on v9 vs Bea, same market)
+
+| | v9 | Bea |
+|---|---|---|
+| units harvested: melon / strawberry / wool / milk | 36 / 87 / 85 / 173 | 120 / 268 / 168 / 230 |
+| production online | cows 6 by day 6 then stalled (cash reserve), straw 18 by day 14 | cows 8 + sheep 6 by day 10-12, straw 40 by day 15 |
+| labour | 40 wheat tiles (520 wheat, ~$13k) eat 5 hands | ~10 wheat tiles, everything else premium |
+| market | holds milk at reserve | sells continuously; **buys ~1400 wheat and re-sells it** as the town drains the market (wheat arbitrage) |
+
+Take-aways for the next iteration:
+1. Spend every coin on production assets in days 0-12 (cows/sheep/strawberries interleaved); no cash reserve beyond one day of feed.
+2. Replant melons after the day-10 dump while the price is >= ~$130 (second wave ~$6k).
+3. Consider the wheat arbitrage (buy when cheap, sell as the town drains) and buying feed instead of growing it.
+4. Tune against `broker_bea`, not against `starter`; the objective is win-rate, not bank.

@@ -1,4 +1,4 @@
-"""HexTex Kaggriculture agent v10 - reinvest everything: cows+sheep+strawberries in parallel, melon second wave.
+"""HexTex Kaggriculture agent v9 - dairy & berries economy with opponent-aware reserve pricing.
 
 What the ladder taught us (see notes/research.md, section 7):
   * Town shops create the money: every shop instance drains 6 units/day of each product it wants
@@ -31,18 +31,18 @@ PARAMS = {
     "cows_base": 8,
     "cows_per_milk_shop": 2,
     "cow_cap": 12,
-    "last_cow_day": 16,
+    "last_cow_day": 14,
     "sheep_base": 3,
     "sheep_per_yarn": 4,
     "sheep_cap": 10,
-    "last_sheep_day": 16,
+    "last_sheep_day": 14,
     "geese_cap": 0,
     # strawberries
     "straw_start_day": 6,
     "straw_last_day": 14,
-    "straw_base": 24,
-    "straw_per_shop": 6,
-    "straw_cap": 48,
+    "straw_base": 10,
+    "straw_per_shop": 8,
+    "straw_cap": 50,
     "straw_fert_ages": [10, 14],
     # land & cash
     "land_day": 8,  # from this day on, buy land whenever cash allows
@@ -50,7 +50,7 @@ PARAMS = {
     "land_min_free": 4,
     "land_cash_margin": 600,
     "cash_floor": 40,
-    "feed_days_reserve": 0.8,
+    "feed_days_reserve": 1.0,
     "wheat_stock_days": 1.2,
     "feed_buy_max_price": 60,
     # market
@@ -63,11 +63,6 @@ PARAMS = {
     "opp_aware_reserve": True,
     "fert_use_below": 30,
     "max_animal_buys_per_day": 2,  # after day 0, so strawberries get cash too
-    "seed_cash_share": 0.5,  # share of spendable cash reserved for strawberry seeds while both are wanted
-    "melon_wave2_days": [10, 15],
-    "melon_wave2_min_price": 130,
-    "melon_wave2_tiles": 10,
-    "wheat_tiles_cap": 12,
     # labour
     "max_hands": 12,
     "actions_per_unit": 20,
@@ -273,8 +268,7 @@ class Brain:
 
     def can_plant(self, crop, day):
         if crop == "MELON":
-            lo, hi = self.p["melon_wave2_days"]
-            return day <= 1 or (lo <= day <= hi and getattr(self, "melon_hot", False))
+            return day <= 1
         if crop == "STRAWBERRY":
             return self.p["straw_start_day"] <= day <= self.p["straw_last_day"]
         return day + CROPS[crop]["harvest_age"] <= LAST_DAY - 1
@@ -345,16 +339,6 @@ class Brain:
                 cands.sort(key=shed_dist)
                 for pos in cands[: want - have]:
                     self.roles[pos] = "STRAWBERRY"
-        # melon second wave when the first dump left the price high enough
-        lo, hi = self.p["melon_wave2_days"]
-        self.melon_hot = prices.get("MELON", 0) >= self.p["melon_wave2_min_price"]
-        if lo <= day <= hi and self.melon_hot:
-            have_m = sum(1 for r in self.roles.values() if r == "MELON")
-            if have_m < self.p["melon_wave2_tiles"]:
-                cands = [p for p in owned if p not in self.roles and is_free(tiles[p[1]][p[0]])]
-                cands.sort(key=lambda p: -shed_dist(p))
-                for pos in cands[: self.p["melon_wave2_tiles"] - have_m]:
-                    self.roles[pos] = "MELON"
         # carrots when pet cafes make them hot
         cafes = sum(1 for s in shops if s == "PET_CAFE")
         want_c = min(self.p["max_carrots"], cafes * self.p["carrots_per_cafe"])
@@ -425,14 +409,8 @@ class Brain:
                 pri = 1 if r in ("MELON", "STRAWBERRY", "CARROT") else 2
                 cands.append((pri, shed_dist((x, y)), (x, y), self.p["crop_actions"].get(r, 2.6)))
         cands.sort()
-        allowed, used, n, wheat_n = set(), 0.0, 0, 0
+        allowed, used, n = set(), 0.0, 0
         for _, _, pos, w in cands:
-            t = tiles[pos[1]][pos[0]]
-            crop = t["crop"] if is_plant(t) else self.role(pos)
-            if crop == "WHEAT":
-                if wheat_n >= self.p["wheat_tiles_cap"] and not is_plant(t):
-                    continue
-                wheat_n += 1
             if used + w > budget and n >= self.p["min_crop_tiles"]:
                 break
             allowed.add(pos)
@@ -640,17 +618,7 @@ class Brain:
             if money - cost >= reserve + margin and (short_of_land or day >= self.p["land_day"]):
                 orders.append(["BUY_LAND"])
                 money -= cost
-        # 4) animals (leave a share of the cash for strawberry seeds while those are wanted)
-        straw_short = 0
-        if self.can_plant("STRAWBERRY", day):
-            straw_short = max(
-                0,
-                sum(1 for p in empties if self.role(p) == "STRAWBERRY")
-                - seeds.get("STRAWBERRY", 0),
-            )
-        animal_money = money
-        if straw_short > 0 and day > 0:
-            animal_money = money - self.p["seed_cash_share"] * max(0.0, money - reserve)
+        # 4) animals
         if hour >= 1 or day == 0:
             targets = self.animal_targets(shops, day)
             candidates = [p for p in empties if p not in self.roles]
@@ -661,7 +629,7 @@ class Brain:
                 s = stats[a]
                 have = s["placed"] + s["stock"]
                 unit_cost = ANIMALS[a]["cost"] + 2 * wheat_price * self.p["feed_days_reserve"]
-                affordable = int((animal_money - reserve) // unit_cost)
+                affordable = int((money - reserve) // unit_cost)
                 want = min(targets[a] - have, affordable)
                 if day > 0:
                     want = min(want, self.p["max_animal_buys_per_day"] - bought_today)
@@ -678,7 +646,6 @@ class Brain:
                 candidates = candidates[new_sites:]
                 orders.append(["BUY_ANIMAL", a, want])
                 money -= want * ANIMALS[a]["cost"]
-                animal_money -= want * ANIMALS[a]["cost"]
                 bought_today += want
                 self.animal_buys_today = (day, bought_today)
         # 5) seeds
@@ -1008,5 +975,5 @@ def agent(obs, config=None):
     try:
         return brain.act(obs)
     except Exception as exc:  # noqa: BLE001 - never crash the episode
-        print(f"[hextex-main] step {obs.get('step')} error: {exc!r}")
+        print(f"[hextex_v9] step {obs.get('step')} error: {exc!r}")
         return {"farmer": ["PASS"], "hands": [], "market": []}
