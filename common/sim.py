@@ -46,9 +46,8 @@ class MatchResult:
         ]
         if self.rewards:
             p0 = [r[0] for r in self.rewards]
-            lines.append(
-                f"  P0 min/median/max = {min(p0):,.0f} / {statistics.median(p0):,.0f} / {max(p0):,.0f}"
-            )
+            med = statistics.median(p0)
+            lines.append(f"  P0 min/median/max = {min(p0):,.0f} / {med:,.0f} / {max(p0):,.0f}")
         if self.errors:
             lines.append(f"  errors: {len(self.errors)} (first: {self.errors[0][:120]})")
         return "\n".join(lines)

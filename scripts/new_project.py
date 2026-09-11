@@ -40,9 +40,8 @@ def scaffold(
 ) -> Path:
     src = root / "templates" / template
     if not src.is_dir():
-        raise SystemExit(
-            f"unknown template: {template} (have: {[p.name for p in (root / 'templates').iterdir()]})"
-        )
+        have = [p.name for p in (root / "templates").iterdir()]
+        raise SystemExit(f"unknown template: {template} (have: {have})")
     dest = root / group / name
     if dest.exists():
         raise SystemExit(f"{dest} already exists")
