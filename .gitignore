@@ -1,32 +1,56 @@
-/Hackathons/Pre_Human_Activity_Recognition/Hackathons/datasets
-/Hackathons/Pre_Human_Activity_Recognition/Hackathons/submissions
-/Hackathons/Pre_Human_Activity_Recognition/Hackathons/database
-/Hackathons/Pre_Human_Activity_Recognition/Hackathons/features
-/Hackathons/Pre_Human_Activity_Recognition/Hackathons/AutogluonModels
-/Hackathons/Human_Activity_Recognition/database
-/Hackathons/Human_Activity_Recognition/datasets
-/Hackathons/Human_Activity_Recognition/features
-/Hackathons/Human_Activity_Recognition/submissions
-/Hackathons/Human_Activity_Recognition/AutogluonModels
+# ── Data, models & run artifacts (any project depth) ─────────────────────────
+# Keep folder skeletons via .gitkeep, ignore everything else inside them.
+**/data/**
+!**/data/**/
+!**/data/**/.gitkeep
+**/datasets/
+**/database/
+**/features/
+**/submissions/**
+!**/submissions/**/
+!**/submissions/**/.gitkeep
+**/models/**
+!**/models/**/
+!**/models/**/.gitkeep
+**/episodes/**
+!**/episodes/**/
+!**/episodes/**/.gitkeep
+**/AutogluonModels/
+**/runs/
+**/lightning_logs/
+**/wandb/
+**/mlruns/
+**/outputs/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.h5
+*.pkl
+*.joblib
+*.zip
+*.tar.gz
 
-/Hackathons/Epidemiology/database
-/Hackathons/Epidemiology/datasets
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+build/
+dist/
 
-/Kaggles/Store_Sales/datasets
-/Kaggles/Store_Sales/submissions
+# ── Secrets & local config (never commit tokens) ─────────────────────────────
+.env
+.env.*
+kaggle.json
+*.secret
 
-/Kaggles/Spaceship_Titanic/datasets
-/Kaggles/Spaceship_Titanic/submissions
-
-/Kaggles/NLP_Getting_Started/datasets
-/Kaggles/NLP_Getting_Started/submissions
-
-/Kaggles/House_Prices/datasets
-/Kaggles/House_Prices/submissions
-
-/Kaggles/Digit_Recognizer/datasets
-/Kaggles/Digit_Recognizer/submissions
-
-/Kaggles/Titanic/datasets
-/Kaggles/Titanic/submissions
-/Kaggles/Titanic/notebooks/AutogluonModels
+# ── Editors / OS ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

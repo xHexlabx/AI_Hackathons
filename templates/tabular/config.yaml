@@ -1,0 +1,16 @@
+competition: "{{SLUG}}"
+seed: 42
+target: "target"          # column name of the label
+id_col: "id"
+task: "classification"    # classification | regression
+metric: "auc"             # auc | accuracy | rmse | mae
+n_folds: 5
+model:
+  name: "lightgbm"
+  params:
+    n_estimators: 2000
+    learning_rate: 0.03
+    num_leaves: 63
+    subsample: 0.8
+    colsample_bytree: 0.8
+    verbose: -1

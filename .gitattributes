@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Python is the primary language from now on; count notebooks as documentation
+# so GitHub's language bar reflects the code, not archived .ipynb outputs.
+*.ipynb linguist-documentation
