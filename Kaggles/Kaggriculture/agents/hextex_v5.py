@@ -606,7 +606,7 @@ class Brain:
                     dprio = 50
                 else:
                     dprio = None
-                if dprio is not None and dprio - dp * sd > best_score:
+                if dprio is not None and dprio - 4 * sd > best_score:
                     best = {
                         "pos": nearest_shed(pos),
                         "op": ["DROP"],
