@@ -91,9 +91,11 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--fold", type=int, default=4, help="โฟลด์ที่จะกาง (4 = บล็อกท้าย ใกล้ test สุด)")
     ap.add_argument("--all", action="store_true", help="กางทุกโฟลด์")
+    ap.add_argument("--with-pseudo", action="store_true", help="ใส่ label ที่ลากมาจากเฟรมข้างเคียงด้วย")
+    ap.add_argument("--buffer", type=int, default=10, help="กัน pseudo ที่ติดบล็อก val กี่เฟรม")
     args = ap.parse_args()
     for fold in range(5) if args.all else [args.fold]:
-        build(fold)
+        build(fold, with_pseudo=args.with_pseudo, buffer=args.buffer)
 
 
 if __name__ == "__main__":

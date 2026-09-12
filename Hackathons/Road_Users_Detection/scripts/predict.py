@@ -114,7 +114,9 @@ def main() -> None:
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--out", default=None)
     ap.add_argument("--sahi", action="store_true", help="ซอยภาพเป็น tile แล้วรวมกับผลจากภาพเต็ม")
-    ap.add_argument("--tile", type=int, default=960, help="ขนาด tile (960 = โดนตัดแค่ 1.6% ของกล่อง)")
+    ap.add_argument(
+        "--tile", type=int, default=960, help="ขนาด tile (960 = โดนตัดกล่องน้อยสุดจากที่วัดไว้)"
+    )
     ap.add_argument("--overlap", type=float, default=0.25)
     ap.add_argument("--merge-iou", type=float, default=0.6, help="IoU ที่ถือว่าเป็นกล่องซ้ำข้าม tile")
     args = ap.parse_args()
