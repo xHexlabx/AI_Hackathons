@@ -70,3 +70,4 @@ uv run kaggle competitions submissions -c kaggriculture
 | 2026-09-12 | **v15** | **124k** (vs v10: 91k, 100% win) | – | + tomatoes for pizza/farmers-market demand · **vs broker_bea 81k vs 96k, 21% win (24 games)** |
 | 2026-09-12 | v16–v17 | – | – | ❌ expected-demand planning (over-invests day 0, concedes markets) / herd hedge — no gain, not promoted |
 | 2026-09-12 | v18 | – | – | melon rush on day 10 · 48 games vs Bea: 79.5k vs 93.1k (23%) ≈ v15 — plateau of parameter tuning |
+| 2026-09-12 | v18b | – | – | rush-buy animals when a demand gap opens (≤8/day) · pool win 60% (v15: 56%), **69% vs v15**, vs Bea unchanged · submitted |

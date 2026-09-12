@@ -199,3 +199,11 @@ marginal-revenue planner instead of "fill the gap" targets, wheat buy-low/sell-h
 **Where the next +15k has to come from:** labour. Both sides spend 54-57% of unit actions walking. A per-day
 route plan (contiguous tile sets per unit, sweep order, one shed trip) should cut that to ~40% and free
 ~60 actions/day = 15-20 more tended tiles. That is a structural change (new scheduler), not a parameter.
+
+### Ladder game 108038668 (v15 vs aiexpert1120, 88k vs 100k) - reaction speed
+Shops: yarn store on day 3 and day 9, two pet cafes. The opponent opened with 16 melons + 1 sheep (kept ~$1000),
+bought **9 sheep on day 10** with the melon money and finished with 14 sheep -> 309 wool at ~$243 = $75k.
+We reached 7 sheep only by day 13 (2 purchases/day, cash split with strawberry seeds) -> 132 wool.
+=> v18b: when the demand gap (target - owned animals) >= 4, buy up to 8 animals/day and give seeds only 20%
+of the cash. vs Bea unchanged (81k / 98k), but **69% vs v15 head-to-head** and 100% vs v10: it matters against
+adaptive opponents, which Bea is not. Benchmarks should use a POOL of opponents: `sim/pool.py`.
