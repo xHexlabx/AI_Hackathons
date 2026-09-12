@@ -186,3 +186,16 @@ carrots +2k for us. Walking is still 54-57% of actions for both.
 
 Ideas not yet tried: daily route planning (cut walking), melon dump timing on day 10 (sell before Bea),
 marginal-revenue planner instead of "fill the gap" targets, wheat buy-low/sell-high like Bea.
+
+### Follow-ups (same day)
+* v18 = v15 + ripe melons harvested/carried/sold first (prio 180/150): 48 games vs Bea 79.5k / 93.1k / 23% vs
+  v15 79.0k / 93.9k / 15% on the same seeds -> within noise; kept as the newest candidate, not submitted.
+* Strawberry sizing (`straw_base` 16/24/30) and the demand factor made no measurable difference over 48 games.
+* Bea's "wheat trading" is not an arbitrage: it buys ~590 wheat at ~$43 and sells ~370 at ~$45 (shed-delta
+  estimate) - essentially feed purchases. Nothing to copy.
+* Day-10 melon dump: both players sell late in the day (hour 15-23) because the far melon tiles are reached
+  last; the price only moves from $272 to $227 for ~100 melons, so the race is worth ~$3k at most.
+
+**Where the next +15k has to come from:** labour. Both sides spend 54-57% of unit actions walking. A per-day
+route plan (contiguous tile sets per unit, sweep order, one shed trip) should cut that to ~40% and free
+~60 actions/day = 15-20 more tended tiles. That is a structural change (new scheduler), not a parameter.
