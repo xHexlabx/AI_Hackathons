@@ -39,16 +39,16 @@ uv run kaggle competitions submit -c kaggriculture -f main.py -m "hextex v6"
 uv run kaggle competitions submissions -c kaggriculture
 ```
 
-## 🧠 Strategy (v20 — v15 macro + route planner)
+## 🧠 Strategy (v21 — clone-line macro + route planner)
 
 เงินในเกมนี้มาจาก **ร้านค้าในเมือง**: ทุกร้านดูดสินค้าที่ต้องการออกจากตลาด 6 หน่วย/วัน ทำให้ของ premium ที่ผลิตน้อยกว่าที่เมืองดูดราคาพุ่ง ($250–340) ส่วนของที่ล้นตลาดดิ่งลง $1
 
-1. **Day 0** — วัว 3 + แกะ 1 ติดโรงเก็บ, melon 8 บน tile ไกล, wheat 8, จ้าง 6 คน (ใช้เงินเกือบหมด)
-2. **Day 1–12** — ขายปุ๋ย/ข้าวสาลีทันทีเป็น cash flow, ซื้อวัว/แกะ/ห่านเพิ่มวันละ ≤2 ตัวควบคู่กับเมล็ดสตรอว์เบอร์รี่ (แบ่งเงินครึ่ง-ครึ่ง); **เป้าหมายทุกสินค้า = (drain ของร้านที่เปิด − supply ของคู่แข่งที่มองเห็น) / yield** → เลี้ยงวัวเมื่อมีร้านนม, แกะเมื่อมี yarn store, ห่านเมื่อมี bakery/brunch, ปลูกมะเขือเทศเมื่อมี pizza/farmers market, แครอทเมื่อมี pet café
+1. **Day 0** — ตาม clone line ของ ladder: จ้าง 5 คน, melon 12 บน tile ไกล, wheat 7, วัว 2 + แกะ 2 ติดโรงเก็บ (order list ตายตัว เรียงให้เงินพอ), เก็บข้าวสาลี 4 หน่วยไว้ feed วันที่ 1
+2. **Day 1–12** — ขายปุ๋ย/ข้าวสาลีทันทีเป็น cash flow; **ฝูงขั้นต่ำตามตาราง clone**: วัว 3/4/6/8 (d3/4/7/8), แกะ 4 (d9) / 6 (d11), ห่าน 3 (d12) ซื้อเร็วสุดที่เงินและ feed safety ยอม (rush ≤8 ตัว/วันเมื่อ gap ≥ 4); เกินขั้นต่ำขยายตาม demand − supply คู่แข่งที่มองเห็น (นม/ขนแกะ/ไข่/มะเขือเทศ/แครอท ตามร้านที่เปิด)
 3. **Day 10** — เท melon wave แรก; ปลูก wave สองถ้าราคายัง ≥ $130
-4. **Day 5–13** — สตรอว์เบอร์รี่ตาม demand (สูงสุด 44 แปลง) ใส่ปุ๋ยตอนอายุ **9 และ 13** (production tick เกิดตอนสิ้นวันอายุ 9/11/13/15 → ปุ๋ย 1 หน่วยคลุม 2 tick = 8 ผล/ต้น)
-5. **ทุกเทิร์น** — ของ premium ขายเมื่อราคา ≥ reserve (ลดลงตาม supply รวมของเราและคู่แข่งที่มองเห็นได้), ของ staple ขายทันที, บังคับขายทุกอย่างตั้งแต่ 21:00 กัน shed ล้น
-6. **Day 26–29** — reserve ลดเป็น 0 เชิงเส้น (liquidation) และขายให้หมดก่อน step 718
+4. **Day 5–13** — สตรอว์เบอร์รี่ 2 wave: 5 ต้น/วัน d5–8 (20) + 13 ต้นบน tile เมลอน d11 (33, สูงสุด 39) ใส่ปุ๋ยตอนอายุ **9 และ 13** (production tick เกิดตอนสิ้นวันอายุ 9/11/13/15 → ปุ๋ย 1 หน่วยคลุม 2 tick = 8 ผล/ต้น)
+5. **ทุกเทิร์น** — คนงานแบ่งเป็น cluster ติดกัน (route planner) หยิบข้าวสาลี/ปุ๋ยครบตอนเกิดที่โรงเก็บ; ของ premium ขายเมื่อราคา ≥ reserve, staple ขายทันที; กลับมาขายก่อน shed ล้นตั้งแต่ 18:00
+6. **Day 27–29** — สะสมนม/ขนแกะถึง cap แล้วเก็บรอบสุดท้าย, liquidation ramp, **จ้างคนงานเต็มวันที่ 29** และขายให้หมดก่อน step 718
 
 คู่ซ้อมมาตรฐาน: `agents/reference/broker_bea.py` (meta line ของ ladder, MIT) — เป้าหมายถัดไปคือชนะ Bea ให้ได้
 
@@ -72,4 +72,5 @@ uv run kaggle competitions submissions -c kaggriculture
 | 2026-09-12 | v18 | – | – | melon rush on day 10 · 48 games vs Bea: 79.5k vs 93.1k (23%) ≈ v15 — plateau of parameter tuning |
 | 2026-09-12 | v18b | – | – | rush-buy animals when a demand gap opens (≤8/day) · pool win 60% (v15: 56%), **69% vs v15**, vs Bea unchanged · submitted |
 | 2026-09-12 | v19 | – | 100k | 🤖 **route planner** (agent A): row-snake clusters per hand, one shed trip at spawn · walking 57%→50% · vs Bea 88.8k/95.0k **35%** · **16-0 vs v18** |
-| 2026-09-12 | **v20 = main.py** | – | – | v19 + rush buying + full crew on day 29 + shed-overflow return · vs Bea **87.8k vs 91.5k, 38%** · 62% vs v19 · vs ladder clone 87k vs 129k (0%) · submitted |
+| 2026-09-12 | v20 | – | – | v19 + rush buying + full crew on day 29 + shed-overflow return · vs Bea **87.8k vs 91.5k, 38%** · 62% vs v19 · vs ladder clone 87k vs 129k (0%) · submitted |
+| 2026-09-12 | **v21 = main.py** | – | – | 🤖 agent E: clone opening (2 cows + 2 sheep + 12 melons + 7 wheat, 5 hires), herd floors 8 cows/6 sheep/3 geese by d8–12, strawberry 2nd wave d11, feed safety + optimizer params · **58–69% vs v20**, vs Bea 38%, pool 60% · submitted |

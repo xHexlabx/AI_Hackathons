@@ -228,3 +228,24 @@ adaptive opponents, which Bea is not. Benchmarks should use a POOL of opponents:
 **v20 = v19 + rush buying + full crew on day 29 + overflow return**: vs Bea 87.8k/91.5k/38% (48 games),
 62% vs v19, 0-16 vs the clone (87k vs 129k). A first attempt to bolt the clone skeleton on (v20 draft) collapsed
 (day-0 over-buying from the fill-ratio extension, unfed animals, 40k) -> to be done incrementally as v21.
+
+### Round 3 results (agents C and E)
+
+* **C – optimizer** (`sim/optimize.py`, 2,160 games): random configs are almost all worse than the defaults; the only
+  consistent mild positives are `tomato_min_drain 13`, `max_carrots 32`, `liq_start_step 660` (paired margin +4.7k ± 2.2k
+  vs Bea, mostly by depressing Bea's income). Round-1 "signals" (`open_cows 2`, `dist_penalty 9`, `spec_cows 5`) did not
+  survive isolation. Stage-1 (16-game) rankings are noise; 48 games minimum.
+* **E – clone-skeleton macro (`agents/hextex_v21.py`)**, one step at a time vs the clone:
+  kept = clone opening as a fixed order list (5 HIRE, 12 melon, 7 wheat, 2 cows + 2 sheep, 4 feed wheat; placement-day
+  ration saved for day 1), herd schedule floors (cows 3/4/6/8 on d3/4/7/8, sheep 4 d9 / 6 d11, geese 3 d12) with
+  cash-only feed safety, strawberry pacing 5/day d5-8 + second wave of 13 on d11 (33, cap 39), `animal_actions` 5.0 so
+  animal clusters are smaller (unfed animals 2-4/day -> 0-2, no escapes), second melon wave off.
+  dropped = crops far / animals near (-8k), 25-40 wheat tiles (-8k: more labour than it earns in our planner), land on
+  d6/d11 (-9.5k), 11 hands (-5k); neutral = wheat fertiliser at age 1-2, carrot finisher, reserve prices 0.
+  v21 vs v20: **69% head-to-head** (16 games); vs Bea 84.4k/86.0k/38%; vs clone 82.7k/120.4k (margin -37.7k vs -39.1k).
+  Pool (12 games x 6 opponents): v21 60%, v20 62% - equal within noise.
+
+**Remaining gap to the clone (~38k) is labour, not the plan**: the clone walks 42% with 11 hands (6643 actions,
+2782 moves), we walk 49-51% with 12 hands (~800 more moves); it harvests 517 own wheat while we buy $8.6k of feed;
+its fertiliser revenue is 2x ours (more animals earlier, every unit sold); 2-3 of our animals still go unfed on some
+late days (cluster logistics).
