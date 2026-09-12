@@ -859,7 +859,7 @@ class Brain:
         final_day = day >= LAST_DAY
         fert_price = prices.get("FERTILIZER", 0)
         use_fert_staple = fert_price < self.p["fert_use_below"]
-        straw_ages = set(self.p["straw_fert_ages"])
+        set(self.p["straw_fert_ages"])
         tasks = []
 
         def add(pos, op, prio, need=None, seed=None, only_without=None, key=None, unit=None):
