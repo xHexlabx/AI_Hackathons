@@ -1,5 +1,4 @@
-"""HexTex Kaggriculture agent v20 - route planner (v19) + rush buying + full final-day crew + shed-overflow return.
-finishes every task on a tile before leaving, and fetches its cluster's wheat/fertiliser at spawn.
+"""HexTex Kaggriculture agent v18c - v18b + a full crew on the final day (harvest + sell everything) and late-season carrots/wheat.
 
 What the ladder taught us (see notes/research.md, section 7):
   * Town shops create the money: every shop instance drains 6 units/day of each product it wants
@@ -33,8 +32,8 @@ PARAMS = {
     "spec_sheep": 3,
     "milk_per_cow": 1.5,
     "wool_per_sheep": 1.33,
-    "cow_cap": 10,
-    "sheep_cap": 10,
+    "cow_cap": 14,
+    "sheep_cap": 16,
     "last_cow_day": 14,
     "last_sheep_day": 16,
     "geese_cap": 10,
@@ -70,7 +69,7 @@ PARAMS = {
     "land_cash_margin": 600,
     "cash_floor": 40,
     "feed_days_reserve": 0.8,
-    "wheat_stock_days": 1.5,
+    "wheat_stock_days": 1.2,
     "feed_buy_max_price": 60,
     # market
     "reserve_frac": {"MILK": 1.0, "STRAWBERRY": 1.0, "WOOL": 0.9, "MELON": 0.0},
@@ -82,6 +81,9 @@ PARAMS = {
     "opp_aware_reserve": True,
     "fert_use_below": 30,
     "max_animal_buys_per_day": 2,  # after day 0, so strawberries get cash too
+    "rush_buys_per_day": 8,  # ... unless the demand gap is large (a new shop): then buy up to this many
+    "rush_gap": 4,  # demand gap (animals) that triggers the rush
+    "rush_seed_share": 0.2,  # strawberry seeds get only this share of cash during a rush
     "seed_cash_share": 0.5,  # share of spendable cash reserved for strawberry seeds while both are wanted
     "melon_wave2_days": [10, 19],
     "melon_wave2_min_price": 100,
@@ -90,7 +92,7 @@ PARAMS = {
     # labour
     "max_hands": 12,
     "actions_per_unit": 20,
-    "walk_factor": 1.15,
+    "walk_factor": 1.3,
     "hire_cash_frac": 0.3,
     "animal_actions": 3.4,
     "crop_actions": {"WHEAT": 2.6, "CARROT": 2.4, "STRAWBERRY": 1.4, "MELON": 1.4, "TOMATO": 1.6},
@@ -100,14 +102,6 @@ PARAMS = {
     "sticky_bonus": 40,
     "zone_bonus": 50,
     "drop_threshold": 10,
-    # route planner
-    "route_mode": True,
-    "route_replan_hours": [0, 1, 2, 3],  # rebuild clusters while the crew is still arriving
-    "help_hour": 8,  # from this hour units with an empty route help on other routes (not their owner's current target)
-    "route_premium_drop": 8,  # premium units carried before a mid-route shed trip
-    "route_goods_drop": 14,  # any goods carried before a mid-route shed trip
-    "route_pickup_max": 8,
-    "emergency_hour": 17,  # from this hour idle units help anywhere (unfed / dying plants first)
     "melon_rush_prio": 150,
     "melon_harvest_prio": 180,  # harvest ripe melons before anything but feeding  # a unit holding melons walks straight to the shed (first seller wins the pot)
     "drop_near": 4,
@@ -116,12 +110,6 @@ PARAMS = {
     "carrot_hot_price": 50,
     "carrots_per_cafe": 8,
     "max_carrots": 24,
-    "rush_buys_per_day": 8,
-    "rush_gap": 4,
-    "rush_seed_share": 0.2,
-    "overflow_hour": 18,
-    "overflow_margin": 12,
-    "animal_harvest_at": {"COW": 4, "SHEEP": 4, "GOOSE": 3},
 }
 if os.environ.get("HEXTEX_PARAMS"):
     PARAMS.update(json.loads(os.environ["HEXTEX_PARAMS"]))
@@ -309,9 +297,6 @@ class Brain:
         self.last_target = {}
         self.zones = {}
         self.crop_allowed = set()
-        self.routes = {}  # unit index -> list of tile positions (its cluster)
-        self.routes_key = None
-        self.route_target = {}
 
     # ------------------------------------------------------------------ helpers
     def role(self, pos):
@@ -331,6 +316,7 @@ class Brain:
             return self.p["tomato_start_day"] <= day <= self.p["tomato_last_day"] and getattr(
                 self, "tomato_hot", False
             )
+        # late season: a crop only needs to reach `first` yield by day 29 (final-day harvest takes anything)
         horizon = (
             CROPS[crop]["harvest_age"]
             if day <= 22
@@ -758,6 +744,7 @@ class Brain:
         sells.sort(reverse=True)
         orders = [["SELL", item, qty] for _, _, item, qty in sells]
         if final_day:
+            # the final day still needs a full crew: every unharvested unit is worth $0 at step 718
             to_hire = self.hires_wanted - me["hires_today"]
             for _ in range(max(0, min(to_hire, MAX_ORDERS - len(orders)))):
                 orders.append(["HIRE"])
@@ -872,97 +859,6 @@ class Brain:
             orders.append(["HIRE"])
         return orders[:MAX_ORDERS]
 
-    # ------------------------------------------------------------------ route planner
-    @staticmethod
-    def _serp_key(pos):
-        x, y = pos
-        qx, qy = x >= 5, y >= 5
-        # serpentine inside each quadrant: rows alternate direction
-        return (qy, qx, y, x if y % 2 == 0 else -x)
-
-    @staticmethod
-    def _row_snake_key(pos):
-        x, y = pos
-        return (y, x if y % 2 == 0 else -x)
-
-    def make_routes(self, tile_tasks, n_units):
-        """Partition the tiles that have tasks into n_units work-balanced row segments.
-
-        A row-snake over the whole farm keeps every cluster inside one or two adjacent rows,
-        so a unit sweeps its segment once. Cluster 0 (the farmer's - the only unit present
-        at hour 0) is the one closest to the shed, where the animals live.
-        """
-        weight = {}
-        for pos, tks in tile_tasks.items():
-            w = 1.0  # the walk onto the tile
-            for tk in tks:
-                w += 1.5 if tk["op"][0] in ("PLANT", "HARVEST") else 1.0
-            weight[pos] = w
-        tiles = sorted(weight, key=self._row_snake_key)
-        if not tiles:
-            return {i: [] for i in range(n_units)}
-        n = max(1, min(n_units, len(tiles)))
-        total = sum(weight.values())
-        per = total / n
-        chunks = [[] for _ in range(n)]
-        acc, z = 0.0, 0
-        for pos in tiles:
-            chunks[min(z, n - 1)].append(pos)
-            acc += weight[pos]
-            if acc >= per * (z + 1):
-                z += 1
-        chunks = [c for c in chunks if c]
-        chunks.sort(key=lambda c: min(shed_dist(q) for q in c))
-        routes = {i: c for i, c in enumerate(chunks)}
-        for i in range(len(chunks), n_units):
-            routes[i] = []
-        return routes
-
-    def assign_routes(self, routes, units):
-        """Match clusters to units by proximity (farmer = unit 0 keeps cluster 0)."""
-        clusters = [c for i, c in sorted(routes.items()) if c]
-        if not clusters:
-            return {i: [] for i in range(len(units))}
-        out = {0: clusters[0]}
-        rest = clusters[1:]
-        free = list(range(1, len(units)))
-        for c in rest:
-            if not free:
-                break
-            mid = c[len(c) // 2]
-            j = min(free, key=lambda u: dist(units[u], mid))
-            out[j] = c
-            free.remove(j)
-        for u in range(len(units)):
-            out.setdefault(u, [])
-        return out
-
-    @staticmethod
-    def _doable(tk, inv, seeds):
-        if tk["need"] and inv.get(tk["need"], 0) <= 0:
-            return False
-        if tk["only_without"] and inv.get(tk["only_without"], 0) > 0:
-            return False
-        if tk["seed"] and seeds.get(tk["seed"], 0) <= 0:
-            return False
-        return True
-
-    def route_needs(self, route, tile_tasks, inv):
-        """Items this unit should carry for the tiles in its route (wheat, fertiliser, animals)."""
-        need = {}
-        for pos in route:
-            for tk in tile_tasks.get(pos, []):
-                item = tk["need"]
-                if item:
-                    need[item] = need.get(item, 0) + 1
-        # FEED/CARE/HARVEST/COLLECT on the same animal all carry the wheat gate - count animals once
-        fixed = {}
-        for pos in route:
-            items = {tk["need"] for tk in tile_tasks.get(pos, []) if tk["need"]}
-            for item in items:
-                fixed[item] = fixed.get(item, 0) + 1
-        return {k: max(0, v - inv.get(k, 0)) for k, v in fixed.items()}
-
     # ------------------------------------------------------------------ units
     def unit_actions(self, obs, me, private, day, hour, units, invs, carried, stats):
         tiles = me["tiles"]
@@ -973,6 +869,7 @@ class Brain:
         final_day = day >= LAST_DAY
         fert_price = prices.get("FERTILIZER", 0)
         use_fert_staple = fert_price < self.p["fert_use_below"]
+        straw_ages = set(self.p["straw_fert_ages"])
         tasks = []
 
         def add(pos, op, prio, need=None, seed=None, only_without=None, key=None, unit=None):
@@ -1088,15 +985,16 @@ class Brain:
                     if not t["cared_today"]:
                         add(pos, ["CARE"], 46, need=gate)
                 if t["yield_units"] > 0:
-                    at = (
-                        1
-                        if day >= 27
-                        else self.p["animal_harvest_at"].get(t["animal"], a["max_held"] - 2)
-                    )
                     add(
                         pos,
                         ["HARVEST"],
-                        78 if (t["yield_units"] >= at or final_day) else 40,
+                        78
+                        if (
+                            a["product"] in PREMIUM
+                            or t["yield_units"] >= a["max_held"] - 1
+                            or final_day
+                        )
+                        else 40,
                         need=gate,
                     )
                 if t["fertilizer_available"] and (not final_day or hour < 12):
@@ -1195,130 +1093,13 @@ class Brain:
             self.p["zone_bonus"],
             self.p["dist_penalty"],
         )
-        # ---- route mode: clusters of tiles per unit, swept once, all tasks done per tile
-        route_mode = self.p["route_mode"] and not final_day
-        tile_tasks = {}
-        if route_mode:
-            for tk in tasks:
-                if tk["pos"] in SHED_TILES and tk["op"][0] == "PICKUP":
-                    continue
-                tile_tasks.setdefault(tk["pos"], []).append(tk)
-            crew = max(len(units), 1 + self.hires_wanted) if hour <= 3 else len(units)
-            key = (day, crew)
-            if self.routes_key != key or hour in self.p["route_replan_hours"] or not self.routes:
-                self.routes = self.assign_routes(self.make_routes(tile_tasks, crew), units)
-                self.routes_key = key
-                self.route_target = {}
-            owned_tiles = {rp for r in self.routes.values() for rp in r}
-        route_actions = {}
-        if not route_mode:
-            owned_tiles = set()
-        if route_mode:
-            shed_now = dict(shed)
-            for i, pos in enumerate(units):
-                inv = invs[i] if i < len(invs) else {}
-                route = self.routes.get(i, [])
-                # 1) shed logistics: pick up what the cluster needs while standing at the shed
-                if pos in SHED_TILES:
-                    needs = self.route_needs(route, tile_tasks, inv)
-                    for item in ("WHEAT", "FERTILIZER", "COW", "SHEEP", "GOOSE"):
-                        n = needs.get(item, 0)
-                        if n <= 0 or shed_now.get(item, 0) <= 0:
-                            continue
-                        take = min(n, self.p["route_pickup_max"], shed_now[item])
-                        if item in ANIMALS:
-                            take = 1
-                        shed_now[item] -= take
-                        route_actions[i] = ["PICKUP", item, take]
-                        break
-                    if i in route_actions:
-                        continue
-                # 2) shed trip when the load says so (melons, lots of premium goods, late day)
-                load = sum(inv.values())
-                if load > 0:
-                    goods = sum(
-                        v
-                        for k, v in inv.items()
-                        if k not in ANIMALS and k not in ("WHEAT", "FERTILIZER")
-                    )
-                    premium_load = sum(v for k, v in inv.items() if k in PREMIUM)
-                    sd = shed_dist(pos)
-                    go = (
-                        inv.get("MELON", 0) > 0
-                        or premium_load >= self.p["route_premium_drop"]
-                        or goods >= self.p["route_goods_drop"]
-                        or (hour >= 21 and sd <= 2 and goods > 0)
-                    )
-                    if go:
-                        tgt = nearest_shed(pos)
-                        route_actions[i] = ["DROP"] if pos == tgt else [move_toward(pos, tgt)]
-                        continue
-                # 3) work the current tile, else walk to the nearest cluster tile with work
-                here = [
-                    tk
-                    for tk in tile_tasks.get(pos, [])
-                    if tk["key"] not in claimed and self._doable(tk, inv, seeds)
-                ]
-                if here:
-                    tk = max(here, key=lambda t: t["prio"])
-                    claimed.add(tk["key"])
-                    if tk["seed"]:
-                        seeds[tk["seed"]] -= 1
-                    route_actions[i] = tk["op"]
-                    continue
-                cands = []
-                cur = self.route_target.get(i)
-                for rp in route:
-                    if rp == pos:
-                        continue
-                    tks = [
-                        tk
-                        for tk in tile_tasks.get(rp, [])
-                        if tk["key"] not in claimed and self._doable(tk, inv, seeds)
-                    ]
-                    if tks:
-                        cands.append(
-                            (0 if rp == cur else 1, dist(pos, rp), self._row_snake_key(rp), rp, tks)
-                        )
-                if cands:
-                    cands.sort()
-                    _, d, _, rp, tks = cands[0]
-                    self.route_target[i] = rp
-                    # reserve the tile's best task so no fallback unit steals it this turn
-                    tk = max(tks, key=lambda t: t["prio"])
-                    claimed.add(tk["key"])
-                    route_actions[i] = [move_toward(pos, rp)]
-                    continue
-                missing = self.route_needs(route, tile_tasks, inv)
-                if (
-                    any(n > 0 and shed_now.get(item, 0) > 0 for item, n in missing.items())
-                    and hour < 20
-                ):
-                    tgt = nearest_shed(pos)
-                    if pos != tgt:
-                        route_actions[i] = [move_toward(pos, tgt)]
-                        continue
-                # 4) route exhausted -> fall through to greedy below (helps elsewhere / drops goods)
-        targeted = {rp for j, rp in self.route_target.items() if j in route_actions}
         for i, pos in enumerate(units):
-            if i in route_actions:
-                actions.append(route_actions[i])
-                continue
             inv = invs[i] if i < len(invs) else {}
             best, best_score = None, -(10**9)
             prev = self.last_target.get(i)
             for tk in tasks:
                 if tk["key"] in claimed:
                     continue
-                if (
-                    route_mode
-                    and tk["pos"] in owned_tiles
-                    and tk["pos"] not in self.routes.get(i, [])
-                ):
-                    if tk["pos"] in targeted and tk["prio"] < 100:
-                        continue
-                    if hour < self.p["help_hour"] and tk["prio"] < 100:
-                        continue
                 if tk["unit"] is not None and tk["unit"] != i:
                     continue
                 if tk["need"] and inv.get(tk["need"], 0) <= 0:
@@ -1351,14 +1132,6 @@ class Brain:
                     dprio = 200
                 elif inv.get("MELON", 0) > 0:
                     dprio = self.p["melon_rush_prio"]
-                elif (
-                    hour >= self.p["overflow_hour"]
-                    and sum(shed.values()) + sum(carried.values()) + self.p["overflow_margin"]
-                    >= 100
-                ):
-                    dprio = (
-                        130  # the end-of-day drop would overflow the shed: bring it in and sell now
-                    )
                 elif hour + sd >= 21:
                     dprio = 120
                 elif premium_load >= 3 or (premium_load > 0 and sd <= 1):
@@ -1431,5 +1204,5 @@ def agent(obs, config=None):
     try:
         return brain.act(obs)
     except Exception as exc:  # noqa: BLE001 - never crash the episode
-        print(f"[hextex-main] step {obs.get('step')} error: {exc!r}")
+        print(f"[hextex_v18c] step {obs.get('step')} error: {exc!r}")
         return {"farmer": ["PASS"], "hands": [], "market": []}

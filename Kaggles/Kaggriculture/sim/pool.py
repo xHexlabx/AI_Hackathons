@@ -16,6 +16,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
 DEFAULT_POOL = [
+    "episodes/kaggle/top/clone_terry.py",  # ladder meta line replay (local file, git-ignored)
     "agents/reference/broker_bea.py",
     "agents/reference/slotter_silas.py",
     "agents/hextex_v15.py",

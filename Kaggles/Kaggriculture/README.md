@@ -39,7 +39,7 @@ uv run kaggle competitions submit -c kaggriculture -f main.py -m "hextex v6"
 uv run kaggle competitions submissions -c kaggriculture
 ```
 
-## 🧠 Strategy (v15 — "dairy & berries + niches")
+## 🧠 Strategy (v20 — v15 macro + route planner)
 
 เงินในเกมนี้มาจาก **ร้านค้าในเมือง**: ทุกร้านดูดสินค้าที่ต้องการออกจากตลาด 6 หน่วย/วัน ทำให้ของ premium ที่ผลิตน้อยกว่าที่เมืองดูดราคาพุ่ง ($250–340) ส่วนของที่ล้นตลาดดิ่งลง $1
 
@@ -71,3 +71,5 @@ uv run kaggle competitions submissions -c kaggriculture
 | 2026-09-12 | v16–v17 | – | – | ❌ expected-demand planning (over-invests day 0, concedes markets) / herd hedge — no gain, not promoted |
 | 2026-09-12 | v18 | – | – | melon rush on day 10 · 48 games vs Bea: 79.5k vs 93.1k (23%) ≈ v15 — plateau of parameter tuning |
 | 2026-09-12 | v18b | – | – | rush-buy animals when a demand gap opens (≤8/day) · pool win 60% (v15: 56%), **69% vs v15**, vs Bea unchanged · submitted |
+| 2026-09-12 | v19 | – | 100k | 🤖 **route planner** (agent A): row-snake clusters per hand, one shed trip at spawn · walking 57%→50% · vs Bea 88.8k/95.0k **35%** · **16-0 vs v18** |
+| 2026-09-12 | **v20 = main.py** | – | – | v19 + rush buying + full crew on day 29 + shed-overflow return · vs Bea **87.8k vs 91.5k, 38%** · 62% vs v19 · vs ladder clone 87k vs 129k (0%) · submitted |

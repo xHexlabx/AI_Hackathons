@@ -1,5 +1,4 @@
-"""HexTex Kaggriculture agent v20 - route planner (v19) + rush buying + full final-day crew + shed-overflow return.
-finishes every task on a tile before leaving, and fetches its cluster's wheat/fertiliser at spawn.
+"""HexTex Kaggriculture agent v19m - v18 + market layer: reserve from REMAINING demand vs REMAINING supply, overflow-aware evening dump, cheap feed stocking.
 
 What the ladder taught us (see notes/research.md, section 7):
   * Town shops create the money: every shop instance drains 6 units/day of each product it wants
@@ -70,7 +69,7 @@ PARAMS = {
     "land_cash_margin": 600,
     "cash_floor": 40,
     "feed_days_reserve": 0.8,
-    "wheat_stock_days": 1.5,
+    "wheat_stock_days": 1.2,
     "feed_buy_max_price": 60,
     # market
     "reserve_frac": {"MILK": 1.0, "STRAWBERRY": 1.0, "WOOL": 0.9, "MELON": 0.0},
@@ -80,6 +79,25 @@ PARAMS = {
     "shed_pressure": 70,
     "evening_dump_hour": 21,  # from this hour sell everything: the end-of-day drop would overflow the shed
     "opp_aware_reserve": True,
+    "res_mode": "instant",  # "remaining" = rest-of-season drain vs visible rest-of-season supply; "instant" = v18 logic
+    "future_unlock_weight": 0.75,  # expected shop instances per still-pending unlock that want a given product
+    "dump_mode": "overflow",  # "overflow" = evening dump only what would not fit in the shed; "evening" = v18 (sell all from 21h)
+    "shed_capacity": 100,
+    "dump_margin": 12,  # expected extra harvest between the check and the end-of-day drop
+    "dump_last_hour_min": 50,  # at hour 23 empty the shed whenever shed + carried is at least this
+    "feed_stock_cheap": False,  # measured: +0.6k for us but +3k for Bea (our buying lifts the wheat price it sells into)  # stock several days of feed while wheat is still cheap
+    "feed_cheap_price": 34,
+    "feed_stock_days_cheap": 3.0,
+    "feed_stock_max_load": 60,
+    # hinge-priced products (egg, carrot, tomato) climb as the town drains them: hold part of the stock
+    # while the projected end-of-season price is well above today's, sell the rest
+    "hinge_hold": False,  # measured neutral (+0.6k) and it fills the shed -> forced premium dumps; off
+    "hinge_hold_items": ["EGG", "CARROT", "TOMATO"],
+    "hinge_hold_gain": 1.2,
+    "hinge_hold_max": 40,
+    "hinge_hold_max_load": 60,
+    "hinge_hold_last_day": 26,
+    "hinge_drain_factor": 0.85,
     "fert_use_below": 30,
     "max_animal_buys_per_day": 2,  # after day 0, so strawberries get cash too
     "seed_cash_share": 0.5,  # share of spendable cash reserved for strawberry seeds while both are wanted
@@ -90,7 +108,7 @@ PARAMS = {
     # labour
     "max_hands": 12,
     "actions_per_unit": 20,
-    "walk_factor": 1.15,
+    "walk_factor": 1.3,
     "hire_cash_frac": 0.3,
     "animal_actions": 3.4,
     "crop_actions": {"WHEAT": 2.6, "CARROT": 2.4, "STRAWBERRY": 1.4, "MELON": 1.4, "TOMATO": 1.6},
@@ -100,14 +118,6 @@ PARAMS = {
     "sticky_bonus": 40,
     "zone_bonus": 50,
     "drop_threshold": 10,
-    # route planner
-    "route_mode": True,
-    "route_replan_hours": [0, 1, 2, 3],  # rebuild clusters while the crew is still arriving
-    "help_hour": 8,  # from this hour units with an empty route help on other routes (not their owner's current target)
-    "route_premium_drop": 8,  # premium units carried before a mid-route shed trip
-    "route_goods_drop": 14,  # any goods carried before a mid-route shed trip
-    "route_pickup_max": 8,
-    "emergency_hour": 17,  # from this hour idle units help anywhere (unfed / dying plants first)
     "melon_rush_prio": 150,
     "melon_harvest_prio": 180,  # harvest ripe melons before anything but feeding  # a unit holding melons walks straight to the shed (first seller wins the pot)
     "drop_near": 4,
@@ -116,12 +126,6 @@ PARAMS = {
     "carrot_hot_price": 50,
     "carrots_per_cafe": 8,
     "max_carrots": 24,
-    "rush_buys_per_day": 8,
-    "rush_gap": 4,
-    "rush_seed_share": 0.2,
-    "overflow_hour": 18,
-    "overflow_margin": 12,
-    "animal_harvest_at": {"COW": 4, "SHEEP": 4, "GOOSE": 3},
 }
 if os.environ.get("HEXTEX_PARAMS"):
     PARAMS.update(json.loads(os.environ["HEXTEX_PARAMS"]))
@@ -309,9 +313,6 @@ class Brain:
         self.last_target = {}
         self.zones = {}
         self.crop_allowed = set()
-        self.routes = {}  # unit index -> list of tile positions (its cluster)
-        self.routes_key = None
-        self.route_target = {}
 
     # ------------------------------------------------------------------ helpers
     def role(self, pos):
@@ -331,12 +332,7 @@ class Brain:
             return self.p["tomato_start_day"] <= day <= self.p["tomato_last_day"] and getattr(
                 self, "tomato_hot", False
             )
-        horizon = (
-            CROPS[crop]["harvest_age"]
-            if day <= 22
-            else max(CROPS[crop]["first"], CROPS[crop]["harvest_age"] - 1)
-        )
-        return day + horizon <= LAST_DAY
+        return day + CROPS[crop]["harvest_age"] <= LAST_DAY - 1
 
     STRAW_PRODUCTION_AGES = PROD_AGES["STRAWBERRY"]
 
@@ -527,9 +523,9 @@ class Brain:
 
     def tile_work(self, t, r, day):
         if is_animal(t):
-            return 2.5 if day >= LAST_DAY else self.p["animal_actions"]
+            return 2.0 if day >= LAST_DAY else self.p["animal_actions"]
         if is_plant(t):
-            return 1.5 if day >= LAST_DAY else self.p["crop_actions"].get(t["crop"], 2.6)
+            return 1.0 if day >= LAST_DAY else self.p["crop_actions"].get(t["crop"], 2.6)
         if is_empty_structure(t) or r in ANIMALS:
             return 4.0
         if r in CROPS and self.can_plant(r, day):
@@ -671,25 +667,107 @@ class Brain:
                     n += 0.6
         return n
 
+    @staticmethod
+    def remaining_supply(farm, item, day):
+        """Units of `item` this farm will still bring to market (visible state only)."""
+        days_left = max(0, LAST_DAY - day)
+        n = 0.0
+        for row in farm["tiles"]:
+            for t in row:
+                if not isinstance(t, dict):
+                    continue
+                animal = t.get("animal")
+                crop = t.get("crop")
+                if item == "MILK" and animal == "COW":
+                    n += 1.5 * days_left + t.get("yield_units", 0)
+                elif item == "WOOL" and animal == "SHEEP":
+                    n += 1.33 * days_left + t.get("yield_units", 0)
+                elif item == "EGG" and animal == "GOOSE":
+                    n += 2.0 * days_left + t.get("yield_units", 0)
+                elif item == "STRAWBERRY" and crop == "STRAWBERRY":
+                    age = day - t["planted_day"]
+                    ticks = sum(
+                        1 for a in (9, 11, 13, 15) if a >= age and t["planted_day"] + a <= 28
+                    )
+                    n += 1.7 * ticks + t.get("yield_units", 0)
+                elif item == "TOMATO" and crop == "TOMATO":
+                    age = day - t["planted_day"]
+                    ticks = sum(1 for a in (7, 8, 9, 10) if a >= age and t["planted_day"] + a <= 28)
+                    n += 1.5 * ticks + t.get("yield_units", 0)
+                elif item == "MELON" and crop == "MELON":
+                    if t["planted_day"] + 10 <= LAST_DAY:
+                        n += 6.0 if day - t["planted_day"] < 10 else t.get("yield_units", 0)
+                elif item == "CARROT" and crop == "CARROT":
+                    n += 3.0
+        return n
+
+    def remaining_drain(self, shops, item, day):
+        """Units the town will remove from the market between now and the end."""
+        days_left = max(0, LAST_DAY - day)
+        total = shop_drain(shops, item) * days_left
+        per_draw = 0.0
+        for wants in SHOP_DEMAND.values():
+            if item in wants:
+                per_draw += (12 if len(wants) == 1 else 6) / len(SHOP_DEMAND)
+        pending = 8 - len(shops)
+        for d_u in (3, 6, 9, 12, 15, 18, 21, 24):
+            if d_u > day and pending > 0:
+                total += self.p["future_unlock_weight"] * per_draw * max(0, LAST_DAY - d_u)
+                pending -= 1
+        return total
+
     def reserve_price(self, item, step, shops, farms=None, player=0):
         frac = self.p["reserve_frac"].get(item, 0.0)
         drain = shop_drain(shops, item)
         if item in self.p["reserve_no_shop_frac"] and drain <= 1:
             frac = self.p["reserve_no_shop_frac"][item]
         if self.p["opp_aware_reserve"] and farms is not None and len(farms) > 1 and frac > 0:
-            supply = self.supply_per_day(farms[player], item) + self.supply_per_day(
-                farms[1 - player], item
-            )
-            if supply > drain > 0:
-                frac *= drain / supply  # structurally oversupplied -> a race to sell, not a hold
+            if self.p["res_mode"] == "remaining":
+                day = step // 24
+                supply = self.remaining_supply(farms[player], item, day) + self.remaining_supply(
+                    farms[1 - player], item, day
+                )
+                demand = self.remaining_drain(shops, item, day)
+                if supply > demand > 0:
+                    frac *= demand / supply  # the season will end in a glut -> a race to sell
+            else:
+                supply = self.supply_per_day(farms[player], item) + self.supply_per_day(
+                    farms[1 - player], item
+                )
+                if supply > drain > 0:
+                    frac *= drain / supply
         ls, le = self.p["liq_start_step"], self.p["liq_end_step"]
         if step >= ls:
             frac *= max(0.0, (le - step) / float(max(1, le - ls)))
         return MARKET_PARAMS[item][0] * frac
 
-    def sell_qty(self, item, held, inv, step, shops, forced, farms=None, player=0):
+    def projected_end_price(self, item, inv, shops, day, farms, player):
+        """Price at season end if the town keeps draining and both farms keep producing."""
+        days_left = max(0, LAST_DAY - day)
+        drain = self.remaining_drain(shops, item, day) * self.p["hinge_drain_factor"]
+        supply = 0.0
+        if farms is not None:
+            for farm in farms[:2]:
+                supply += self.remaining_supply(farm, item, day)
+        end_inv = inv - drain + supply
+        return market_price(item, int(round(end_inv))), days_left
+
+    def sell_qty(self, item, held, inv, step, shops, forced, farms=None, player=0, shed_load=0):
         if held <= 0:
             return 0
+        day = step // 24
+        if (
+            not forced
+            and self.p["hinge_hold"]
+            and item in self.p["hinge_hold_items"]
+            and day < self.p["hinge_hold_last_day"]
+            and shed_load < self.p["hinge_hold_max_load"]
+        ):
+            proj, _ = self.projected_end_price(item, inv, shops, day, farms, player)
+            now = market_price(item, inv)
+            if proj >= now * self.p["hinge_hold_gain"]:
+                keep = min(held, self.p["hinge_hold_max"])
+                return max(0, held - keep)
         if forced or item not in PREMIUM:
             return held
         reserve = self.reserve_price(item, step, shops, farms, player)
@@ -711,9 +789,15 @@ class Brain:
         wheat_price = prices.get("WHEAT", 25)
         fert_price = prices.get("FERTILIZER", 0)
         shed_load = sum(shed.values()) + sum(dropping.values())
-        forced = (
-            final_day or shed_load >= self.p["shed_pressure"] or hour >= self.p["evening_dump_hour"]
-        )
+        incoming = sum(v for k, v in carried.items() if k not in ANIMALS) - sum(dropping.values())
+        if self.p["dump_mode"] == "overflow":
+            proj = shed_load + max(0, incoming)
+            evening = (hour >= 20 and proj + self.p["dump_margin"] >= self.p["shed_capacity"]) or (
+                hour >= 23 and proj >= self.p["dump_last_hour_min"]
+            )
+        else:
+            evening = hour >= self.p["evening_dump_hour"]
+        forced = final_day or shed_load >= self.p["shed_pressure"] or evening
 
         # 1) sells (premium goods gated by a reserve price; staples always)
         wheat_keep = 0 if final_day else math.ceil(n_animals * self.p["wheat_stock_days"])
@@ -750,6 +834,7 @@ class Brain:
                 forced,
                 obs["farms"],
                 obs["player"],
+                shed_load,
             )
             if qty > 0:
                 unit = prices.get(item, 1)
@@ -758,9 +843,6 @@ class Brain:
         sells.sort(reverse=True)
         orders = [["SELL", item, qty] for _, _, item, qty in sells]
         if final_day:
-            to_hire = self.hires_wanted - me["hires_today"]
-            for _ in range(max(0, min(to_hire, MAX_ORDERS - len(orders)))):
-                orders.append(["HIRE"])
             return orders[:MAX_ORDERS]
 
         money = me["money"]
@@ -772,6 +854,17 @@ class Brain:
             need = max(need, n_animals - wheat_avail)
         elif unfed > 0 and shed.get("WHEAT", 0) == 0 and hour >= 4:
             need = max(need, min(unfed, 4))
+        if (
+            self.p["feed_stock_cheap"]
+            and day >= 1
+            and n_animals > 0
+            and wheat_price <= self.p["feed_cheap_price"]
+            and shed_load < self.p["feed_stock_max_load"]
+        ):
+            target = math.ceil(n_animals * self.p["feed_stock_days_cheap"])
+            extra = target - wheat_avail
+            if extra > 0 and money - extra * wheat_price * 1.2 > self.p["cash_floor"] + 200:
+                need = max(need, extra)
         if need > 0 and money > 0:
             orders.append(["BUY_PRODUCT", "WHEAT", need])
             money -= need * wheat_price * 1.3
@@ -810,15 +903,8 @@ class Brain:
                 - seeds.get("STRAWBERRY", 0),
             )
         animal_money = money
-        targets_now = self.animal_targets(obs, day) if (hour >= 1 or day == 0) else {}
-        gap = sum(
-            max(0, targets_now.get(a, 0) - (stats[a]["placed"] + stats[a]["stock"]))
-            for a in ANIMALS
-        )
-        rush = day > 0 and gap >= self.p["rush_gap"]
         if straw_short > 0 and day > 0:
-            share = self.p["rush_seed_share"] if rush else self.p["seed_cash_share"]
-            animal_money = money - share * max(0.0, money - reserve)
+            animal_money = money - self.p["seed_cash_share"] * max(0.0, money - reserve)
         if hour >= 1 or day == 0:
             targets = self.animal_targets(obs, day)
             candidates = [p for p in empties if p not in self.roles]
@@ -832,10 +918,7 @@ class Brain:
                 affordable = int((animal_money - reserve) // unit_cost)
                 want = min(targets[a] - have, affordable)
                 if day > 0:
-                    cap_today = (
-                        self.p["rush_buys_per_day"] if rush else self.p["max_animal_buys_per_day"]
-                    )
-                    want = min(want, cap_today - bought_today)
+                    want = min(want, self.p["max_animal_buys_per_day"] - bought_today)
                 if want <= 0:
                     continue
                 new_sites = max(0, want - (s["slots"] - s["stock"]))
@@ -872,97 +955,6 @@ class Brain:
             orders.append(["HIRE"])
         return orders[:MAX_ORDERS]
 
-    # ------------------------------------------------------------------ route planner
-    @staticmethod
-    def _serp_key(pos):
-        x, y = pos
-        qx, qy = x >= 5, y >= 5
-        # serpentine inside each quadrant: rows alternate direction
-        return (qy, qx, y, x if y % 2 == 0 else -x)
-
-    @staticmethod
-    def _row_snake_key(pos):
-        x, y = pos
-        return (y, x if y % 2 == 0 else -x)
-
-    def make_routes(self, tile_tasks, n_units):
-        """Partition the tiles that have tasks into n_units work-balanced row segments.
-
-        A row-snake over the whole farm keeps every cluster inside one or two adjacent rows,
-        so a unit sweeps its segment once. Cluster 0 (the farmer's - the only unit present
-        at hour 0) is the one closest to the shed, where the animals live.
-        """
-        weight = {}
-        for pos, tks in tile_tasks.items():
-            w = 1.0  # the walk onto the tile
-            for tk in tks:
-                w += 1.5 if tk["op"][0] in ("PLANT", "HARVEST") else 1.0
-            weight[pos] = w
-        tiles = sorted(weight, key=self._row_snake_key)
-        if not tiles:
-            return {i: [] for i in range(n_units)}
-        n = max(1, min(n_units, len(tiles)))
-        total = sum(weight.values())
-        per = total / n
-        chunks = [[] for _ in range(n)]
-        acc, z = 0.0, 0
-        for pos in tiles:
-            chunks[min(z, n - 1)].append(pos)
-            acc += weight[pos]
-            if acc >= per * (z + 1):
-                z += 1
-        chunks = [c for c in chunks if c]
-        chunks.sort(key=lambda c: min(shed_dist(q) for q in c))
-        routes = {i: c for i, c in enumerate(chunks)}
-        for i in range(len(chunks), n_units):
-            routes[i] = []
-        return routes
-
-    def assign_routes(self, routes, units):
-        """Match clusters to units by proximity (farmer = unit 0 keeps cluster 0)."""
-        clusters = [c for i, c in sorted(routes.items()) if c]
-        if not clusters:
-            return {i: [] for i in range(len(units))}
-        out = {0: clusters[0]}
-        rest = clusters[1:]
-        free = list(range(1, len(units)))
-        for c in rest:
-            if not free:
-                break
-            mid = c[len(c) // 2]
-            j = min(free, key=lambda u: dist(units[u], mid))
-            out[j] = c
-            free.remove(j)
-        for u in range(len(units)):
-            out.setdefault(u, [])
-        return out
-
-    @staticmethod
-    def _doable(tk, inv, seeds):
-        if tk["need"] and inv.get(tk["need"], 0) <= 0:
-            return False
-        if tk["only_without"] and inv.get(tk["only_without"], 0) > 0:
-            return False
-        if tk["seed"] and seeds.get(tk["seed"], 0) <= 0:
-            return False
-        return True
-
-    def route_needs(self, route, tile_tasks, inv):
-        """Items this unit should carry for the tiles in its route (wheat, fertiliser, animals)."""
-        need = {}
-        for pos in route:
-            for tk in tile_tasks.get(pos, []):
-                item = tk["need"]
-                if item:
-                    need[item] = need.get(item, 0) + 1
-        # FEED/CARE/HARVEST/COLLECT on the same animal all carry the wheat gate - count animals once
-        fixed = {}
-        for pos in route:
-            items = {tk["need"] for tk in tile_tasks.get(pos, []) if tk["need"]}
-            for item in items:
-                fixed[item] = fixed.get(item, 0) + 1
-        return {k: max(0, v - inv.get(k, 0)) for k, v in fixed.items()}
-
     # ------------------------------------------------------------------ units
     def unit_actions(self, obs, me, private, day, hour, units, invs, carried, stats):
         tiles = me["tiles"]
@@ -973,6 +965,7 @@ class Brain:
         final_day = day >= LAST_DAY
         fert_price = prices.get("FERTILIZER", 0)
         use_fert_staple = fert_price < self.p["fert_use_below"]
+        straw_ages = set(self.p["straw_fert_ages"])
         tasks = []
 
         def add(pos, op, prio, need=None, seed=None, only_without=None, key=None, unit=None):
@@ -1088,15 +1081,16 @@ class Brain:
                     if not t["cared_today"]:
                         add(pos, ["CARE"], 46, need=gate)
                 if t["yield_units"] > 0:
-                    at = (
-                        1
-                        if day >= 27
-                        else self.p["animal_harvest_at"].get(t["animal"], a["max_held"] - 2)
-                    )
                     add(
                         pos,
                         ["HARVEST"],
-                        78 if (t["yield_units"] >= at or final_day) else 40,
+                        78
+                        if (
+                            a["product"] in PREMIUM
+                            or t["yield_units"] >= a["max_held"] - 1
+                            or final_day
+                        )
+                        else 40,
                         need=gate,
                     )
                 if t["fertilizer_available"] and (not final_day or hour < 12):
@@ -1195,130 +1189,13 @@ class Brain:
             self.p["zone_bonus"],
             self.p["dist_penalty"],
         )
-        # ---- route mode: clusters of tiles per unit, swept once, all tasks done per tile
-        route_mode = self.p["route_mode"] and not final_day
-        tile_tasks = {}
-        if route_mode:
-            for tk in tasks:
-                if tk["pos"] in SHED_TILES and tk["op"][0] == "PICKUP":
-                    continue
-                tile_tasks.setdefault(tk["pos"], []).append(tk)
-            crew = max(len(units), 1 + self.hires_wanted) if hour <= 3 else len(units)
-            key = (day, crew)
-            if self.routes_key != key or hour in self.p["route_replan_hours"] or not self.routes:
-                self.routes = self.assign_routes(self.make_routes(tile_tasks, crew), units)
-                self.routes_key = key
-                self.route_target = {}
-            owned_tiles = {rp for r in self.routes.values() for rp in r}
-        route_actions = {}
-        if not route_mode:
-            owned_tiles = set()
-        if route_mode:
-            shed_now = dict(shed)
-            for i, pos in enumerate(units):
-                inv = invs[i] if i < len(invs) else {}
-                route = self.routes.get(i, [])
-                # 1) shed logistics: pick up what the cluster needs while standing at the shed
-                if pos in SHED_TILES:
-                    needs = self.route_needs(route, tile_tasks, inv)
-                    for item in ("WHEAT", "FERTILIZER", "COW", "SHEEP", "GOOSE"):
-                        n = needs.get(item, 0)
-                        if n <= 0 or shed_now.get(item, 0) <= 0:
-                            continue
-                        take = min(n, self.p["route_pickup_max"], shed_now[item])
-                        if item in ANIMALS:
-                            take = 1
-                        shed_now[item] -= take
-                        route_actions[i] = ["PICKUP", item, take]
-                        break
-                    if i in route_actions:
-                        continue
-                # 2) shed trip when the load says so (melons, lots of premium goods, late day)
-                load = sum(inv.values())
-                if load > 0:
-                    goods = sum(
-                        v
-                        for k, v in inv.items()
-                        if k not in ANIMALS and k not in ("WHEAT", "FERTILIZER")
-                    )
-                    premium_load = sum(v for k, v in inv.items() if k in PREMIUM)
-                    sd = shed_dist(pos)
-                    go = (
-                        inv.get("MELON", 0) > 0
-                        or premium_load >= self.p["route_premium_drop"]
-                        or goods >= self.p["route_goods_drop"]
-                        or (hour >= 21 and sd <= 2 and goods > 0)
-                    )
-                    if go:
-                        tgt = nearest_shed(pos)
-                        route_actions[i] = ["DROP"] if pos == tgt else [move_toward(pos, tgt)]
-                        continue
-                # 3) work the current tile, else walk to the nearest cluster tile with work
-                here = [
-                    tk
-                    for tk in tile_tasks.get(pos, [])
-                    if tk["key"] not in claimed and self._doable(tk, inv, seeds)
-                ]
-                if here:
-                    tk = max(here, key=lambda t: t["prio"])
-                    claimed.add(tk["key"])
-                    if tk["seed"]:
-                        seeds[tk["seed"]] -= 1
-                    route_actions[i] = tk["op"]
-                    continue
-                cands = []
-                cur = self.route_target.get(i)
-                for rp in route:
-                    if rp == pos:
-                        continue
-                    tks = [
-                        tk
-                        for tk in tile_tasks.get(rp, [])
-                        if tk["key"] not in claimed and self._doable(tk, inv, seeds)
-                    ]
-                    if tks:
-                        cands.append(
-                            (0 if rp == cur else 1, dist(pos, rp), self._row_snake_key(rp), rp, tks)
-                        )
-                if cands:
-                    cands.sort()
-                    _, d, _, rp, tks = cands[0]
-                    self.route_target[i] = rp
-                    # reserve the tile's best task so no fallback unit steals it this turn
-                    tk = max(tks, key=lambda t: t["prio"])
-                    claimed.add(tk["key"])
-                    route_actions[i] = [move_toward(pos, rp)]
-                    continue
-                missing = self.route_needs(route, tile_tasks, inv)
-                if (
-                    any(n > 0 and shed_now.get(item, 0) > 0 for item, n in missing.items())
-                    and hour < 20
-                ):
-                    tgt = nearest_shed(pos)
-                    if pos != tgt:
-                        route_actions[i] = [move_toward(pos, tgt)]
-                        continue
-                # 4) route exhausted -> fall through to greedy below (helps elsewhere / drops goods)
-        targeted = {rp for j, rp in self.route_target.items() if j in route_actions}
         for i, pos in enumerate(units):
-            if i in route_actions:
-                actions.append(route_actions[i])
-                continue
             inv = invs[i] if i < len(invs) else {}
             best, best_score = None, -(10**9)
             prev = self.last_target.get(i)
             for tk in tasks:
                 if tk["key"] in claimed:
                     continue
-                if (
-                    route_mode
-                    and tk["pos"] in owned_tiles
-                    and tk["pos"] not in self.routes.get(i, [])
-                ):
-                    if tk["pos"] in targeted and tk["prio"] < 100:
-                        continue
-                    if hour < self.p["help_hour"] and tk["prio"] < 100:
-                        continue
                 if tk["unit"] is not None and tk["unit"] != i:
                     continue
                 if tk["need"] and inv.get(tk["need"], 0) <= 0:
@@ -1351,14 +1228,6 @@ class Brain:
                     dprio = 200
                 elif inv.get("MELON", 0) > 0:
                     dprio = self.p["melon_rush_prio"]
-                elif (
-                    hour >= self.p["overflow_hour"]
-                    and sum(shed.values()) + sum(carried.values()) + self.p["overflow_margin"]
-                    >= 100
-                ):
-                    dprio = (
-                        130  # the end-of-day drop would overflow the shed: bring it in and sell now
-                    )
                 elif hour + sd >= 21:
                     dprio = 120
                 elif premium_load >= 3 or (premium_load > 0 and sd <= 1):
@@ -1431,5 +1300,5 @@ def agent(obs, config=None):
     try:
         return brain.act(obs)
     except Exception as exc:  # noqa: BLE001 - never crash the episode
-        print(f"[hextex-main] step {obs.get('step')} error: {exc!r}")
+        print(f"[hextex_v19m] step {obs.get('step')} error: {exc!r}")
         return {"farmer": ["PASS"], "hands": [], "market": []}

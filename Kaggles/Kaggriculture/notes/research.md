@@ -207,3 +207,24 @@ We reached 7 sheep only by day 13 (2 purchases/day, cash split with strawberry s
 => v18b: when the demand gap (target - owned animals) >= 4, buy up to 8 animals/day and give seeds only 20%
 of the cash. vs Bea unchanged (81k / 98k), but **69% vs v15 head-to-head** and 100% vs v10: it matters against
 adaptive opponents, which Bea is not. Benchmarks should use a POOL of opponents: `sim/pool.py`.
+
+## 9. Round 3 (2026-09-12): four parallel agents
+
+* **A – route planner (`agents/hextex_v19.py`)**: row-snake clusters balanced by workload, one PICKUP per item at
+  spawn, sticky targets, idle units help other clusters from hour 8. Walking 57% -> 50%. vs Bea 88.8k/95.0k/35%
+  (v18 79.5k/23%), 16-0 vs v18. Midday replans and k-medoid clustering were worse.
+* **B – market layer (`agents/hextex_v19m.py`)**: nothing in the sell layer moves the needle (all within noise);
+  realised prices already match Bea's. Found the end-of-day **shed overflow** leak (~$620/game, up to $5.9k):
+  units carry 80-115 items at hour 23 -> fixed in v20 (return to shed from hour 18 when shed+carried+12 >= 100).
+* **C – optimizer (`sim/optimize.py`, `sim/space_v18.json`)**: successive-halving random search; see its report.
+* **D – top-team replays (`notes/top_agents.md`)**: the ladder's real meta line is a byte-identical "clone line"
+  (Terry Luo 2919, cha7ura, tomo0608, KongKongDe): 2 cows + 2 sheep + 12 melons + 7 wheat + 5 hires on d0,
+  8 cows / 6 sheep by d8-11, 3 geese d12, strawberries 20 (d5-8) + 13 (d11), land d6 + d11, 11 hands, 42% walking,
+  digs strawberries at 16, 29 carrots d25-27, +$14k on d29. Top seats (3000+) keep that skeleton and scale the ONE
+  herd the shops want (22 sheep with 4 yarn stores, 11-13 cows with 5-7 milk shops), cash < $1k on d1-9, sell
+  continuously. Fill-ratio rule: milk/strawberry <= 0.9 x season drain -> ~$200; wool tolerates 1.1.
+  Sparring partner built from the trace: `episodes/kaggle/top/clone_terry.py` (git-ignored) - beats Bea 100%.
+
+**v20 = v19 + rush buying + full crew on day 29 + overflow return**: vs Bea 87.8k/91.5k/38% (48 games),
+62% vs v19, 0-16 vs the clone (87k vs 129k). A first attempt to bolt the clone skeleton on (v20 draft) collapsed
+(day-0 over-buying from the fill-ratio extension, unfed animals, 40k) -> to be done incrementally as v21.

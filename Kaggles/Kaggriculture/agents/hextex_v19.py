@@ -1,4 +1,4 @@
-"""HexTex Kaggriculture agent v20 - route planner (v19) + rush buying + full final-day crew + shed-overflow return.
+"""HexTex Kaggriculture agent v19 - v18 + per-day route planner: each unit owns a compact cluster of tiles, sweeps it once,
 finishes every task on a tile before leaving, and fetches its cluster's wheat/fertiliser at spawn.
 
 What the ladder taught us (see notes/research.md, section 7):
@@ -116,12 +116,6 @@ PARAMS = {
     "carrot_hot_price": 50,
     "carrots_per_cafe": 8,
     "max_carrots": 24,
-    "rush_buys_per_day": 8,
-    "rush_gap": 4,
-    "rush_seed_share": 0.2,
-    "overflow_hour": 18,
-    "overflow_margin": 12,
-    "animal_harvest_at": {"COW": 4, "SHEEP": 4, "GOOSE": 3},
 }
 if os.environ.get("HEXTEX_PARAMS"):
     PARAMS.update(json.loads(os.environ["HEXTEX_PARAMS"]))
@@ -331,12 +325,7 @@ class Brain:
             return self.p["tomato_start_day"] <= day <= self.p["tomato_last_day"] and getattr(
                 self, "tomato_hot", False
             )
-        horizon = (
-            CROPS[crop]["harvest_age"]
-            if day <= 22
-            else max(CROPS[crop]["first"], CROPS[crop]["harvest_age"] - 1)
-        )
-        return day + horizon <= LAST_DAY
+        return day + CROPS[crop]["harvest_age"] <= LAST_DAY - 1
 
     STRAW_PRODUCTION_AGES = PROD_AGES["STRAWBERRY"]
 
@@ -527,9 +516,9 @@ class Brain:
 
     def tile_work(self, t, r, day):
         if is_animal(t):
-            return 2.5 if day >= LAST_DAY else self.p["animal_actions"]
+            return 2.0 if day >= LAST_DAY else self.p["animal_actions"]
         if is_plant(t):
-            return 1.5 if day >= LAST_DAY else self.p["crop_actions"].get(t["crop"], 2.6)
+            return 1.0 if day >= LAST_DAY else self.p["crop_actions"].get(t["crop"], 2.6)
         if is_empty_structure(t) or r in ANIMALS:
             return 4.0
         if r in CROPS and self.can_plant(r, day):
@@ -758,9 +747,6 @@ class Brain:
         sells.sort(reverse=True)
         orders = [["SELL", item, qty] for _, _, item, qty in sells]
         if final_day:
-            to_hire = self.hires_wanted - me["hires_today"]
-            for _ in range(max(0, min(to_hire, MAX_ORDERS - len(orders)))):
-                orders.append(["HIRE"])
             return orders[:MAX_ORDERS]
 
         money = me["money"]
@@ -810,15 +796,8 @@ class Brain:
                 - seeds.get("STRAWBERRY", 0),
             )
         animal_money = money
-        targets_now = self.animal_targets(obs, day) if (hour >= 1 or day == 0) else {}
-        gap = sum(
-            max(0, targets_now.get(a, 0) - (stats[a]["placed"] + stats[a]["stock"]))
-            for a in ANIMALS
-        )
-        rush = day > 0 and gap >= self.p["rush_gap"]
         if straw_short > 0 and day > 0:
-            share = self.p["rush_seed_share"] if rush else self.p["seed_cash_share"]
-            animal_money = money - share * max(0.0, money - reserve)
+            animal_money = money - self.p["seed_cash_share"] * max(0.0, money - reserve)
         if hour >= 1 or day == 0:
             targets = self.animal_targets(obs, day)
             candidates = [p for p in empties if p not in self.roles]
@@ -832,10 +811,7 @@ class Brain:
                 affordable = int((animal_money - reserve) // unit_cost)
                 want = min(targets[a] - have, affordable)
                 if day > 0:
-                    cap_today = (
-                        self.p["rush_buys_per_day"] if rush else self.p["max_animal_buys_per_day"]
-                    )
-                    want = min(want, cap_today - bought_today)
+                    want = min(want, self.p["max_animal_buys_per_day"] - bought_today)
                 if want <= 0:
                     continue
                 new_sites = max(0, want - (s["slots"] - s["stock"]))
@@ -1088,15 +1064,16 @@ class Brain:
                     if not t["cared_today"]:
                         add(pos, ["CARE"], 46, need=gate)
                 if t["yield_units"] > 0:
-                    at = (
-                        1
-                        if day >= 27
-                        else self.p["animal_harvest_at"].get(t["animal"], a["max_held"] - 2)
-                    )
                     add(
                         pos,
                         ["HARVEST"],
-                        78 if (t["yield_units"] >= at or final_day) else 40,
+                        78
+                        if (
+                            a["product"] in PREMIUM
+                            or t["yield_units"] >= a["max_held"] - 1
+                            or final_day
+                        )
+                        else 40,
                         need=gate,
                     )
                 if t["fertilizer_available"] and (not final_day or hour < 12):
@@ -1351,14 +1328,6 @@ class Brain:
                     dprio = 200
                 elif inv.get("MELON", 0) > 0:
                     dprio = self.p["melon_rush_prio"]
-                elif (
-                    hour >= self.p["overflow_hour"]
-                    and sum(shed.values()) + sum(carried.values()) + self.p["overflow_margin"]
-                    >= 100
-                ):
-                    dprio = (
-                        130  # the end-of-day drop would overflow the shed: bring it in and sell now
-                    )
                 elif hour + sd >= 21:
                     dprio = 120
                 elif premium_load >= 3 or (premium_load > 0 and sd <= 1):
@@ -1431,5 +1400,5 @@ def agent(obs, config=None):
     try:
         return brain.act(obs)
     except Exception as exc:  # noqa: BLE001 - never crash the episode
-        print(f"[hextex-main] step {obs.get('step')} error: {exc!r}")
+        print(f"[hextex_v19] step {obs.get('step')} error: {exc!r}")
         return {"farmer": ["PASS"], "hands": [], "market": []}
