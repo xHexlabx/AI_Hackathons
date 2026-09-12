@@ -2,112 +2,122 @@
 
 # 🏆 AI Hackathons
 
-**พื้นที่รวมงาน Kaggle competitions และ AI hackathons ของ HexTex**<br>
-Python-first · reproducible · เริ่มโปรเจกต์ใหม่ได้ในคำสั่งเดียว
-
-[![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)](pyproject.toml)
-[![uv](https://img.shields.io/badge/deps-uv-DE5FE9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
-[![Ruff](https://img.shields.io/badge/lint-ruff-261230?logo=ruff&logoColor=D7FF64)](https://docs.astral.sh/ruff/)
-[![CI](https://github.com/xHexlabx/AI_Hackathons/actions/workflows/ci.yml/badge.svg)](https://github.com/xHexlabx/AI_Hackathons/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+**รวมงาน hackathon และ Kaggle competition ของ HexTex**
 
 </div>
 
 ---
 
-Repository นี้รวบรวม code และเทคนิคจากการแข่ง Kaggle / hackathon ต่าง ๆ หวังว่าจะเป็นประโยชน์กับผู้เข้าชมไม่มากก็น้อย หากมีข้อผิดพลาดขออภัยมา ณ ที่นี้ด้วยนะครับ — HexTex 😸
+Repository นี้รวบรวม code และเทคนิคจากการแข่ง hackathon / Kaggle ต่าง ๆ หวังว่าจะเป็นประโยชน์กับผู้เข้าชมไม่มากก็น้อย หากมีข้อผิดพลาดขออภัยมา ณ ที่นี้ด้วยนะครับ — HexTex 😸
 
-> **ตั้งแต่ปี 2026** งานใหม่ทั้งหมดพัฒนาด้วย **Python package (`src/`) เป็นหลัก** — notebook ใช้สำหรับ EDA เท่านั้น
-> งานเก่า (2024–2025) ยังเก็บ notebook ต้นฉบับไว้ครบใน `notebooks/` ของแต่ละโปรเจกต์
+**1 โฟลเดอร์ = 1 งาน** แต่ละงานมี `README.md` ของตัวเองที่เล่าโจทย์ วิธีทำ และผลลัพธ์ครบในที่เดียว เปิดโฟลเดอร์ไหนก็อ่านจบได้โดยไม่ต้องย้อนมาที่นี่
 
-## ✨ Highlights
+## 🗺️ สารบัญ
 
-| | Event | Result |
+### 🏁 Hackathons
+
+| # | งาน | Task | Result |
+|:-:|---|---|---|
+| 1 | 🥇 [Human Activity Recognition](Hackathons/Human_Activity_Recognition/) | Time-series Classification (9 คลาส) | **ชนะเลิศ** on-site |
+| 2 | 📈 [Pre-Human Activity Recognition](Hackathons/Pre_Human_Activity_Recognition/) | Time-series Classification (6 คลาส) | รอบเตรียมตัว |
+| 3 | 🍐 [Durian Hackathon](Hackathons/Durian_Hackathon/) | Image Classification ×3 | 🏅 อันดับ 5 · Private #3 |
+| 4 | 🏨 [Hotel Review Sentiment Analysis](Hackathons/Hotel_Review_Sentiment_Analysis/) | Text → Rating (1–5) | 🚧 กำลังทำ |
+
+### 🚜 Kaggle Competitions
+
+| # | งาน | Task | Result |
+|:-:|---|---|---|
+| 1 | 🎮 [Kaggriculture](Kaggles/Kaggriculture/) | Simulation Agent (2-player farming sim) | 🔥 กำลังแข่ง |
+| 2 | 🚢 [Titanic](Kaggles/Titanic/) | Tabular Classification | ✅ |
+| 3 | 🛸 [Spaceship Titanic](Kaggles/Spaceship_Titanic/) | Tabular Classification | ✅ |
+
+### 🧪 Mini Projects
+
+| # | งาน | Task | Result |
+|:-:|---|---|---|
+| 1 | 🔢 [Thai Handwritten Numbers](mini_projects/thai_number_handwritten_classification/) | Image Classification (๐–๙) | ✅ |
+
+---
+
+## 🏁 Hackathons
+
+#### Human Activity Recognition
+
+🥇 งานแข่ง on-site ณ มหาวิทยาลัยมหิดล รายการ **Mahidol × SuperAI** โจทย์คือรับสัญญาณ accelerometer และ gyroscope แล้วบอกว่าคนคนนั้นกำลังทำท่าอะไรใน 9 ท่า จุดที่ทำให้ชนะคือการ **สร้าง feature ต่อ window** ให้ดีก่อนโยนเข้าโมเดล ไม่ใช่การหาโมเดลที่ใหญ่ขึ้น
+
+> **Task** : Time-series Classification (9 คลาส) &nbsp;|&nbsp; **Tools** : AutoGluon Tabular · pandas &nbsp;|&nbsp; **Result** : 🥇 ชนะเลิศ
+
+#### Pre-Human Activity Recognition
+
+📈 รอบเตรียมตัวก่อนขึ้นเวที on-site ใช้แค่ accelerometer แยก 6 ท่า เป็นที่ทดลองว่า feature ชุดไหนอยู่รอด ก่อนเอาสูตรเดียวกันไปต่อยอดในรอบจริง
+
+> **Task** : Time-series Classification (6 คลาส) &nbsp;|&nbsp; **Tools** : statistical features + FFT · AutoGluon Tabular
+
+#### Durian Hackathon
+
+🍐 Hackathon ด้าน Image Classification ณ มหาวิทยาลัยสงขลานครินทร์ วิทยาเขตภูเก็ต งานเดียวแต่มี 3 โจทย์ย่อย โจทย์หลักคือจำแนกสาเหตุความเสียหายของทุเรียน 4 คลาส ซึ่งยากตรงที่ทั้งเชื้อราและเพลี้ยต่างก็มีหลายชนิดปนอยู่ในคลาสเดียวกัน
+
+| โจทย์ย่อย | สิ่งที่ทำ | Models |
 |---|---|---|
-| 🥇 | [Mahidol × SuperAI — Human Activity Recognition](Hackathons/Human_Activity_Recognition/) | **ชนะเลิศ** (on-site) |
-| 🏅 | [PSU Phuket — Durian Hackathon](Hackathons/Durian_Hackathon/) | อันดับ 5 · Private score **#3** |
-| 🚜 | [Kaggle × Google — Kaggriculture](Kaggles/Kaggriculture/) (2026) | 🔥 กำลังแข่ง — simulation agent |
+| [Durian Disease Classification](Hackathons/Durian_Hackathon/Durian_Disease_Classification/) | จำแนกสาเหตุความเสียหายของทุเรียน 4 คลาส | MaxViT (Lightning) · YOLOv11x-cls · CLIP zero-shot |
+| [Fruit Classification](Hackathons/Durian_Hackathon/Fruit_Classification/) | จำแนกชนิดผลไม้ | MaxViT |
+| [Sugarcane Disease Classification](Hackathons/Durian_Hackathon/Sugarcane_Disease_Classification/) | จำแนกโรคอ้อย | MaxViT |
 
-## 🗂️ โครงสร้าง
+> **Task** : Image Classification &nbsp;|&nbsp; **Tools** : timm (MaxViT) · PyTorch Lightning · Ultralytics · CLIP &nbsp;|&nbsp; **Result** : 🏅 อันดับ 5 (Private score #3)
+
+#### Hotel Review Sentiment Analysis
+
+🏨 ทำนายคะแนนรีวิวโรงแรม 1–5 ดาว จากข้อความรีวิวภาษาอังกฤษ กำลังทดลองสาย LLM อยู่ ยังไม่สรุปผล
+
+> **Task** : Text → Rating &nbsp;|&nbsp; **Tools** : Qwen3-0.6B · transformers &nbsp;|&nbsp; **Status** : 🚧 กำลังทำ
+
+---
+
+## 🚜 Kaggle Competitions
+
+#### Kaggriculture
+
+🎮 Simulation competition ของ Kaggle × Google เล่นเป็นเกมทำฟาร์ม 2 ผู้เล่นที่ใช้ตลาดร่วมกัน 720 เทิร์น ตัดสินกันที่เงินในธนาคารตอนจบ ไม่ใช่งาน machine learning แต่เป็นงาน **วางแผนเศรษฐกิจ + จัดคิวแรงงาน** ล้วน ๆ เขียนเป็น python ธรรมดาไม่มีโมเดล ประวัติการพัฒนา agent v1 ถึง v23 พร้อมผลวัดทุกเวอร์ชันอยู่ใน README ของโฟลเดอร์
+
+> **Task** : Simulation Agent &nbsp;|&nbsp; **Tools** : kaggle-environments · pure python (rule-based planner) &nbsp;|&nbsp; **Status** : 🔥 กำลังแข่ง
+
+#### Titanic
+
+🚢 โจทย์คลาสสิกของ Kaggle ทำนายว่าผู้โดยสารรอดชีวิตหรือไม่ ใช้เป็นที่ลองของ
+
+> **Task** : Tabular Classification &nbsp;|&nbsp; **Tools** : AutoGluon Tabular
+
+#### Spaceship Titanic
+
+🛸 เวอร์ชันอวกาศของ Titanic ทำนายว่าผู้โดยสารถูกส่งข้ามมิติไปหรือเปล่า
+
+> **Task** : Tabular Classification &nbsp;|&nbsp; **Tools** : AutoGluon Tabular
+
+---
+
+## 🧪 Mini Projects
+
+#### Thai Handwritten Numbers
+
+🔢 จำแนกตัวเลขไทยเขียนมือ ๐–๙ ด้วยการ fine-tune YOLO11x-cls รันบน Google Colab
+
+> **Task** : Image Classification &nbsp;|&nbsp; **Tools** : Ultralytics (YOLO11x-cls)
+
+---
+
+## 📁 โครงสร้างของ Repository
 
 ```
-AI_Hackathons/
-├── Kaggles/            🚜 Kaggle competitions          (Kaggriculture, Titanic, Spaceship Titanic, ...)
-├── Hackathons/         🏁 on-site / InClass hackathons  (HAR, Durian, Hotel Review, ...)
-├── mini_projects/      🧪 ทดลองเล็ก ๆ                    (Thai handwritten digits, ...)
-├── common/             🧰 shared python package          (seed, paths, kaggle CLI, submission, sim harness)
-├── templates/          📐 โครงโปรเจกต์ต้นแบบ             (tabular · simulation)
-├── scripts/            ⚙️  new_project.py  — scaffold โปรเจกต์ใหม่
-├── tests/              ✅ pytest
-└── pyproject.toml      📦 uv project + ruff config
+AI_Hackathons
+├── Hackathons      🏁 งานแข่ง on-site / InClass
+├── Kaggles         🚜 Kaggle competitions
+└── mini_projects   🧪 งานทดลองเล็ก ๆ
 ```
 
-### โครงสร้างภายในแต่ละโปรเจกต์
+แต่ละงานอยู่ในโฟลเดอร์ของตัวเอง มี `README.md` เล่าโจทย์และผลลัพธ์ ส่วน notebook หรือ `.py` ของงานนั้นอยู่ข้างในเลย
+งานที่มีโค้ดรันจริงจะมี `pyproject.toml` ของตัวเอง ติดตั้งด้วย `uv sync` ในโฟลเดอร์นั้นได้เลย ไม่ต้องพึ่ง environment กลาง
 
-```
-<Group>/<Project>/
-├── README.md           โจทย์ · approach · log ผลลัพธ์
-├── config.yaml         paths / seed / CV / model params        (tabular)
-├── main.py             agent ที่ submit                          (simulation)
-├── src/                pipeline: data → features → train → predict
-├── notebooks/          EDA / notebook เก่า
-├── data/ models/ submissions/ episodes/        ← git-ignored ทั้งหมด
-└── notes/              research & strategy notes
-```
-
-## 🚀 เริ่มต้นใช้งาน
-
-```bash
-# 1) ติดตั้ง environment (Python 3.12 + deps หลัก + kaggle-environments)
-uv sync                         # เพิ่ม --group dl สำหรับ torch/timm/transformers, --group nb สำหรับ JupyterLab
-
-# 2) Kaggle CLI (ครั้งเดียว)
-uv run kaggle auth login        # หรือวาง token ไว้ที่ ~/.kaggle/access_token
-
-# 3) เริ่มโปรเจกต์ใหม่จาก template
-uv run python scripts/new_project.py Spaceship_Titanic --slug spaceship-titanic              # tabular
-uv run python scripts/new_project.py Kaggriculture --slug kaggriculture \
-    --template simulation --env kaggriculture                                                  # simulation
-
-# 4) รัน pipeline ของโปรเจกต์ (tabular)
-cd Kaggles/<Project> && uv run python -m src.train && uv run python -m src.predict
-
-# lint / test
-uv run ruff check . && uv run ruff format --check . && uv run pytest
-```
-
-## 📁 โปรเจกต์ทั้งหมด
-
-### 🚜 Kaggle Competitions — [`Kaggles/`](Kaggles/)
-
-| Competition | Type | Approach | Status |
-|---|---|---|---|
-| [Kaggriculture](Kaggles/Kaggriculture/) | 🎮 Simulation — 2-player farming sim, shared market | Rule-based planner + greedy task scheduler (pure python) | 🔥 active |
-| [Titanic](Kaggles/Titanic/) | Tabular · binary classification | AutoGluon | ✅ |
-| [Spaceship Titanic](Kaggles/Spaceship_Titanic/) | Tabular · binary classification | AutoGluon | ✅ |
-
-### 🏁 Hackathons — [`Hackathons/`](Hackathons/)
-
-| Project | Event | Task · Approach | Result |
-|---|---|---|---|
-| [Pre_Human_Activity_Recognition](Hackathons/Pre_Human_Activity_Recognition/) | Mahidol × SuperAI (warm-up) | accelerometer → 6 activities · features + AutoGluon | 📈 |
-| [Human_Activity_Recognition](Hackathons/Human_Activity_Recognition/) | Mahidol × SuperAI (on-site) | acc + gyro → 9 activities · features + AutoGluon | 🥇 ชนะเลิศ |
-| [Durian_Hackathon](Hackathons/Durian_Hackathon/) | PSU Phuket | image classification ×3 · MaxViT / YOLOv11x-cls / CLIP | 🏅 อันดับ 5 (Private #3) |
-| [Hotel_Review_Sentiment_Analysis](Hackathons/Hotel_Review_Sentiment_Analysis/) | — | review text → rating · LLM | 🚧 WIP |
-
-### 🧪 Mini Projects — [`mini_projects/`](mini_projects/)
-
-| Project | Task · Model |
-|---|---|
-| [thai_number_handwritten_classification](mini_projects/thai_number_handwritten_classification/) | ตัวเลขไทยเขียนมือ ๐–๙ · YOLO11x-cls |
-
-## 🧭 Conventions
-
-- **Python-first** — logic อยู่ใน `src/` (หรือ `main.py` สำหรับ simulation) รันด้วย `uv run`; notebook มีไว้ดูข้อมูลเท่านั้น
-- **Data ไม่ขึ้น git** — `data/`, `models/`, `submissions/`, `episodes/` ถูก ignore ทั้ง repo (เก็บโครงด้วย `.gitkeep`)
-- **ไม่มี secret ใน code** — ใช้ env var (`HF_TOKEN`, Kaggle token ใน `~/.kaggle/`) เท่านั้น
-- **Lint/format** ด้วย Ruff (line length 100) · ทดสอบด้วย pytest · CI รันทุก push
-- **ชื่อโฟลเดอร์โปรเจกต์** ใช้ `Title_Case_With_Underscores` ตามเดิม
+ข้อมูลและผลลัพธ์ไม่ขึ้น git — `datasets/`, `data/`, `models/`, `submissions/`, `episodes/` ถูก ignore ไว้ทั้งหมด ต้องโหลด dataset เองตามที่ README ของแต่ละงานบอก
 
 ## 🙏 Special Thanks
 

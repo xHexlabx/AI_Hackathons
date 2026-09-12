@@ -9,6 +9,7 @@
 
 ```
 Kaggriculture/
+├── pyproject.toml       # env ของงานนี้เอง (kaggle-environments + ruff) — `uv sync` ครั้งเดียว
 ├── main.py              # agent ที่ submit (= agents/hextex_v6.py)  ← last callable in file = agent
 ├── agents/              # hextex_v1 … v10 (ประวัติการพัฒนา) + reference/ (Kaggle reference agents, MIT)
 ├── sim/
@@ -27,6 +28,7 @@ Kaggriculture/
 
 ```bash
 cd Kaggles/Kaggriculture
+uv sync                                                             # ครั้งแรกครั้งเดียว
 uv run python sim/run.py main.py agents/reference/broker_bea.py -n 8  # vs ladder meta line (เป้าหมาย)
 uv run python sim/run.py main.py starter -n 8                       # vs built-in baseline
 uv run python sim/run.py main.py agents/hextex_v5.py -n 8 --seed 100 # vs previous version

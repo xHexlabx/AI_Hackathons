@@ -1,0 +1,23 @@
+[project]
+name = "kaggriculture"
+version = "0.1.0"
+description = "HexTex agent for the Kaggle x Google Kaggriculture simulation competition"
+requires-python = ">=3.12"
+dependencies = ["kaggle-environments>=1.32"]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["agents/reference/*.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "N", "W"]
+
+[tool.ruff.lint.per-file-ignores]
+# sim tooling prints wide tables; agents are single-file submissions
+"sim/*.py" = ["E501"]
+"agents/*.py" = ["E501", "SIM103", "SIM113", "SIM114"]
+"main.py" = ["E501", "SIM103", "SIM113", "SIM114"]
