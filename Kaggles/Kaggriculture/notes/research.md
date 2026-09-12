@@ -265,3 +265,25 @@ Next steps, in order:
 3. Fill-ratio herd extension (agent D recs 1, 3) is implemented but conservative; once labour allows, raise caps.
 Benchmarks: clone `sim/run.py <agent> episodes/kaggle/top/clone_terry.py -n 16 --seed 3000`, Bea 48 games seed 1000,
 head-to-head vs main 24 games seed 1200, pool 12 games/opponent. Deadlines: entry 2026-09-23, final 2026-09-30.
+
+## 11. Anti-meta experiment (2026-09-12, v23) - negative result
+
+Hypothesis: the only shared state is the market, so beat the clone line by (a) earning on products it cannot crash
+(eggs: log curve; fertiliser pot taken early with cheap geese) and (b) spoiling its premium pots / front-running the
+melon dump. `agents/hextex_v23.py` = v21 with a geese-first opening (6 geese + 10 melons + 7 wheat, geese 12 by d6),
+lighter cow/sheep floors, and a "melon rush" morning on day 10 (all units harvest and carry melons before hour 7).
+
+Result (24 games vs the clone, seed 3000): **67.9k vs 124.8k** - worse than v21 (82.7k vs 120.4k). 479 eggs sold for
+$19.5k ($41/egg, the log floor); fertiliser $12.5k vs the clone's $18k even with more animals early; giving up milk cost
+~$24k in a 4-milk-shop seed (the clone's milk pot got bigger, not smaller). Strawberries did not crash either: with 4
+strawberry shops the season drain absorbs 450+ units at $190-235.
+
+Why denial does not work here: the pots that matter (milk/strawberry) are shop-driven and large; to crash them we must
+match the clone's supply, which costs the same as it costs them. Eggs are safe but capped at ~$40. The clone's edge is
+**efficiency, not the plan**: same seed, revenue gap only ~8-10k but **spend gap ~20k** (hires 7.5k vs 3.6k, bought
+feed ~8k vs ~0, more seeds), because it walks 42% and grows 517 wheat with 11 hands. In our planner growing wheat
+(`wheat_tiles_cap` 16-20) scores -6k and 13 hands +-0 (sweep, 16 games). => The lever is still the route planner.
+
+What remains true and cheap: melon front-running on day 10 (clone sells h6-17; worth ~$3-5k), selling fertiliser the
+day it is collected, and detecting the clone from its day-0 purchases (2 cows + 2 sheep + 12 melons + 7 wheat) if a
+mode switch is ever useful.

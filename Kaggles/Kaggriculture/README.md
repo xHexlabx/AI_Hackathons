@@ -73,5 +73,6 @@ uv run kaggle competitions submissions -c kaggriculture
 | 2026-09-12 | v18b | – | – | rush-buy animals when a demand gap opens (≤8/day) · pool win 60% (v15: 56%), **69% vs v15**, vs Bea unchanged · submitted |
 | 2026-09-12 | v19 | – | 100k | 🤖 **route planner** (agent A): row-snake clusters per hand, one shed trip at spawn · walking 57%→50% · vs Bea 88.8k/95.0k **35%** · **16-0 vs v18** |
 | 2026-09-12 | v20 | – | – | v19 + rush buying + full crew on day 29 + shed-overflow return · vs Bea **87.8k vs 91.5k, 38%** · 62% vs v19 · vs ladder clone 87k vs 129k (0%) · submitted |
+| 2026-09-12 | v23 | – | – | ❌ anti-meta test: geese-first + melon rush → 68k vs clone 125k (v21: 83k vs 120k); denial does not work, gap is labour (notes §11) |
 | 2026-09-12 | v22 (WIP) | – | – | 🤖 planner pass 2, agent stopped mid-way: walking 48% but 38% vs v21, 0-8 vs clone — not promoted, resume here |
 | 2026-09-12 | **v21 = main.py** | – | – | 🤖 agent E: clone opening (2 cows + 2 sheep + 12 melons + 7 wheat, 5 hires), herd floors 8 cows/6 sheep/3 geese by d8–12, strawberry 2nd wave d11, feed safety + optimizer params · **58–69% vs v20**, vs Bea 38%, pool 60% · submitted |
