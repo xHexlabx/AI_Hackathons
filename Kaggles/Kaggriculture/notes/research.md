@@ -249,3 +249,19 @@ adaptive opponents, which Bea is not. Benchmarks should use a POOL of opponents:
 2782 moves), we walk 49-51% with 12 hands (~800 more moves); it harvests 517 own wheat while we buy $8.6k of feed;
 its fertiliser revenue is 2x ours (more animals earlier, every unit sold); 2-3 of our animals still go unfed on some
 late days (cluster logistics).
+
+## 10. Where to resume (paused 2026-09-12)
+
+State: `main.py` = v21 (submitted; ladder ratings ~800 for v15/v20/v21 and climbing). Partial `agents/hextex_v22.py`
+(planner pass 2, agent stopped mid-way): runs clean, walking 48% (v21 50%), but 38% vs v21 head-to-head and 0-8 vs the
+clone -> not promoted. The ~38k/game gap to the ladder clone is labour efficiency, not the plan.
+
+Next steps, in order:
+1. Planner pass 2 done properly: walking <= 45% (clone 42%), zero unfed animals, then spend the freed actions on
+   wheat self-supply (clone: 517 wheat from ~25 tiles, we buy ~$8.6k of feed) or drop to 11 hands.
+   Consider the clone's model: one fixed sweep per hand per day, no replanning, no mid-day shed trips.
+2. Re-check ladder ratings after ~1 day; keep the best two submissions (v20/v21) as the final candidates unless v22 wins
+   head-to-head AND on the pool (`sim/pool.py`, includes the clone).
+3. Fill-ratio herd extension (agent D recs 1, 3) is implemented but conservative; once labour allows, raise caps.
+Benchmarks: clone `sim/run.py <agent> episodes/kaggle/top/clone_terry.py -n 16 --seed 3000`, Bea 48 games seed 1000,
+head-to-head vs main 24 games seed 1200, pool 12 games/opponent. Deadlines: entry 2026-09-23, final 2026-09-30.
