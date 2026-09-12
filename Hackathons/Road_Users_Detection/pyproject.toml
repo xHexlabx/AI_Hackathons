@@ -1,0 +1,16 @@
+[project]
+name = "road-users-detection"
+version = "0.1.0"
+description = "Road Users Detection — th-road-safety (SuperAI SS4 TrafficHackathon), DETR-family rebuild"
+requires-python = ">=3.12"
+dependencies = ["numpy>=2.0", "pillow>=10.3", "pandas>=2.2", "tqdm>=4.66"]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "N", "W"]

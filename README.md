@@ -22,6 +22,7 @@ Repository นี้รวบรวม code และเทคนิคจาก
 | 2 | 📈 [Pre-Human Activity Recognition](Hackathons/Pre_Human_Activity_Recognition/) | Time-series Classification (6 คลาส) | รอบเตรียมตัว |
 | 3 | 🍐 [Durian Hackathon](Hackathons/Durian_Hackathon/) | Image Classification ×3 | 🏅 อันดับ 5 · Private #3 |
 | 4 | 🏨 [Hotel Review Sentiment Analysis](Hackathons/Hotel_Review_Sentiment_Analysis/) | Text → Rating (1–5) | 🚧 กำลังทำ |
+| 5 | 🛣️ [Road Users Detection](Hackathons/Road_Users_Detection/) | Object Detection (11 คลาส) | 🔥 กำลังทำ |
 
 ### 🚜 Kaggle Competitions
 
@@ -64,6 +65,12 @@ Repository นี้รวบรวม code และเทคนิคจาก
 | [Sugarcane Disease Classification](Hackathons/Durian_Hackathon/Sugarcane_Disease_Classification/) | จำแนกโรคอ้อย | MaxViT |
 
 > **Task** : Image Classification &nbsp;|&nbsp; **Tools** : timm (MaxViT) · PyTorch Lightning · Ultralytics · CLIP &nbsp;|&nbsp; **Result** : 🏅 อันดับ 5 (Private score #3)
+
+#### Road Users Detection
+
+🛣️ ตรวจจับผู้ใช้ถนน 11 ประเภทจากภาพกล้องจราจรในไทย ตั้งแต่คนเดินเท้า จักรยาน มอเตอร์ไซค์ ไปจนถึงรถตุ๊กตุ๊กและรถฉุกเฉิน ความยากอยู่ที่ภาพจริงบนถนนมีรถบังกันเป็นชั้น ๆ กล่องซ้อนทับกันหนาแน่น ซึ่งเป็นจุดที่ NMS มักตัดกล่องที่ถูกต้องทิ้ง รอบนี้เลยตั้งใจเทรนเองด้วยโมเดลตระกูล **DETR** ที่ทำนายเป็นเซ็ตโดยตรงและไม่ต้องใช้ NMS
+
+> **Task** : Object Detection (11 คลาส) &nbsp;|&nbsp; **Tools** : DETR family (เป้าหมาย Co-DETR) &nbsp;|&nbsp; **Status** : 🔥 กำลังทำ
 
 #### Hotel Review Sentiment Analysis
 
