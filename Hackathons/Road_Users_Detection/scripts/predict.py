@@ -159,7 +159,11 @@ def main() -> None:
             ]
         for image_id, (xyxy, conf, cls) in zip(ids[start : start + step], detections, strict=True):
             if len(xyxy) == 0:
-                rows.append({"id": image_id, "boxes": "", "labels": "", "scores": ""})
+                # sample_submission มีแถวว่างเป็นตัวอย่าง แต่ scorer จริงขึ้น ERROR ถ้าเจอแถวว่าง
+                # (ทดสอบแล้ว 2026-09-13) จึงต้องมีอย่างน้อย 1 กล่องเสมอ ใส่กล่องจิ๋วความมั่นใจ 0
+                rows.append(
+                    {"id": image_id, "boxes": "[[0, 0, 1, 1]]", "labels": "[0]", "scores": "[0.0]"}
+                )
                 n_empty += 1
                 continue
             boxes = [[int(round(v)) for v in row] for row in xyxy.tolist()]
