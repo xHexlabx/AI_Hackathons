@@ -1,4 +1,4 @@
-"""HexTex Kaggriculture agent v15 - tomatoes for pizza/farmers-market demand (an untouched hinge-priced pot), generic ongoing-crop logic.
+"""HexTex Kaggriculture agent v11 - strawberry fertiliser logistics, continuous melons, 3-quadrant farm.
 
 What the ladder taught us (see notes/research.md, section 7):
   * Town shops create the money: every shop instance drains 6 units/day of each product it wants
@@ -24,46 +24,30 @@ PARAMS = {
     # opening (day 0) - all in, like the ladder meta
     "open_cows": 3,
     "open_sheep": 1,
-    "open_melons": 12,
+    "open_melons": 8,
     "open_wheat": 8,
     "open_hands": 6,
-    # animals: target = (town drain - opponent's visible supply) / yield + speculative base
-    "spec_cows": 3,
-    "spec_sheep": 3,
-    "milk_per_cow": 1.5,
-    "wool_per_sheep": 1.33,
-    "cow_cap": 10,
+    # animals (targets grow with the town's demand; re-evaluated daily)
+    "cows_base": 8,
+    "cows_per_milk_shop": 2,
+    "cow_cap": 12,
+    "last_cow_day": 16,
+    "sheep_base": 3,
+    "sheep_per_yarn": 4,
     "sheep_cap": 10,
-    "last_cow_day": 14,
     "last_sheep_day": 16,
-    "geese_cap": 10,
-    "eggs_per_goose": 2.0,
-    "last_goose_day": 16,
-    "min_egg_drain": 7,  # at least one egg shop before geese are considered
-    # crew schedule (minimum hands by day; workload can raise it, cash no longer caps it)
-    "crew_schedule": {"0": 6, "1": 4, "5": 6, "7": 8, "8": 10, "10": 12},
+    "geese_cap": 0,
     # strawberries
     "straw_start_day": 5,
     "straw_last_day": 13,
-    "straw_base": 16,  # speculative tiles; the rest is sized by (town drain - opponent supply)
-    "straw_per_shop": 6,  # unused since v14 (kept for sweeps)
-    "straw_per_tile": 0.65,  # units/day one producing tile adds to the market
-    "straw_cap": 44,
-    "straw_fert_ages": [
-        9,
-        13,
-    ],  # productions fire at END of ages 9/11/13/15 -> 9 and 13 each cover two
+    "straw_base": 24,
+    "straw_per_shop": 6,
+    "straw_cap": 48,
+    "straw_fert_ages": [10, 14],  # primary ages (2 productions each); fallback ages 9,11-13,15-16
     "straw_fert_fallback": True,
-    # tomatoes: only when pizza shops / farmers markets exist (hinge scarcity -> $100-200)
-    "tomato_start_day": 3,
-    "tomato_last_day": 18,
-    "tomato_cap": 20,
-    "tomato_min_drain": 7,
-    "tomato_per_tile": 0.7,
     # land & cash
     "land_day": 8,  # from this day on, buy land whenever cash allows
     "max_quadrants": 3,
-    "land_overflow": False,  # allow a 4th quadrant when roles are waiting for free tiles
     "last_land_day": 18,
     "land_min_free": 4,
     "land_cash_margin": 600,
@@ -84,7 +68,7 @@ PARAMS = {
     "seed_cash_share": 0.5,  # share of spendable cash reserved for strawberry seeds while both are wanted
     "melon_wave2_days": [10, 19],
     "melon_wave2_min_price": 100,
-    "melon_wave2_tiles": 12,
+    "melon_wave2_tiles": 10,
     "wheat_tiles_cap": 12,
     # labour
     "max_hands": 12,
@@ -92,7 +76,7 @@ PARAMS = {
     "walk_factor": 1.3,
     "hire_cash_frac": 0.3,
     "animal_actions": 3.4,
-    "crop_actions": {"WHEAT": 2.6, "CARROT": 2.4, "STRAWBERRY": 1.4, "MELON": 1.4, "TOMATO": 1.6},
+    "crop_actions": {"WHEAT": 2.6, "CARROT": 2.4, "STRAWBERRY": 1.4, "MELON": 1.4},
     "min_crop_tiles": 8,
     "dist_penalty": 7,
     "stay_bonus": 60,
@@ -121,19 +105,7 @@ CROPS = {
         "ongoing": True,
         "last_age": 16,
     },
-    "TOMATO": {
-        "seed": 50,
-        "first": 8,
-        "harvest_age": 8,
-        "fert_age": (99, 99),
-        "ongoing": True,
-        "last_age": 10,
-    },
 }
-# end-of-day production ticks of the ongoing crops (age on the day the tick fires)
-PROD_AGES = {"STRAWBERRY": (9, 11, 13, 15), "TOMATO": (7, 8, 9, 10)}
-FERT_PRIMARY = {"STRAWBERRY": (9, 13), "TOMATO": (7, 8)}  # one unit covers 2-3 ticks here
-FERT_FALLBACK = {"STRAWBERRY": (10, 11, 14, 15), "TOMATO": (9, 10)}
 ANIMALS = {
     "GOOSE": {
         "cost": 300,
@@ -307,80 +279,41 @@ class Brain:
             return day <= 1 or (lo <= day <= hi and getattr(self, "melon_hot", False))
         if crop == "STRAWBERRY":
             return self.p["straw_start_day"] <= day <= self.p["straw_last_day"]
-        if crop == "TOMATO":
-            return self.p["tomato_start_day"] <= day <= self.p["tomato_last_day"] and getattr(
-                self, "tomato_hot", False
-            )
         return day + CROPS[crop]["harvest_age"] <= LAST_DAY - 1
 
-    STRAW_PRODUCTION_AGES = PROD_AGES["STRAWBERRY"]
-
-    def ongoing_fert_now(self, t, day):
-        """True when fertilising this ongoing crop now covers an uncovered production tick."""
+    def straw_fert_now(self, t, day):
+        """True when fertilising this strawberry plant now covers an uncovered production."""
         if t.get("fertilized_until_day", -1) >= day:
             return False
-        crop = t["crop"]
-        if crop not in PROD_AGES:
-            return False
         age = day - t["planted_day"]
-        if age in FERT_PRIMARY[crop]:
+        primary = set(self.p["straw_fert_ages"])
+        if age in primary:
             return True
-        return bool(self.p["straw_fert_fallback"]) and age in FERT_FALLBACK[crop]
-
-    def straw_fert_now(self, t, day):
-        return self.ongoing_fert_now(t, day)
+        if not self.p["straw_fert_fallback"]:
+            return False
+        productions = (10, 12, 14, 16)
+        return any(age <= q <= age + 2 for q in productions) and 9 <= age <= 16
 
     @staticmethod
     def shops_of(obs):
         return (obs.get("town") or {}).get("unlocked_shops", []) or []
 
-    def animal_targets(self, obs, day):
-        shops = self.shops_of(obs)
-        player = obs["player"]
-        farms = obs["farms"]
-        opp_cows = opp_sheep = 0
-        if len(farms) > 1:
-            for row in farms[1 - player]["tiles"]:
-                for t in row:
-                    if isinstance(t, dict):
-                        if t.get("animal") == "COW":
-                            opp_cows += 1
-                        elif t.get("animal") == "SHEEP":
-                            opp_sheep += 1
-        opp_geese = 0
-        if len(farms) > 1:
-            for row in farms[1 - player]["tiles"]:
-                for t in row:
-                    if isinstance(t, dict) and t.get("animal") == "GOOSE":
-                        opp_geese += 1
-        egg_drain = shop_drain(shops, "EGG")
-        room_geese = (egg_drain - self.p["eggs_per_goose"] * opp_geese) / self.p["eggs_per_goose"]
-        geese = 0
-        if egg_drain >= self.p["min_egg_drain"]:
-            geese = int(max(0, min(self.p["geese_cap"], round(room_geese))))
-        room_cows = (shop_drain(shops, "MILK") - self.p["milk_per_cow"] * opp_cows) / self.p[
-            "milk_per_cow"
-        ]
-        room_sheep = (shop_drain(shops, "WOOL") - self.p["wool_per_sheep"] * opp_sheep) / self.p[
-            "wool_per_sheep"
-        ]
-        cows = int(
-            max(self.p["spec_cows"], min(self.p["cow_cap"], round(room_cows) + self.p["spec_cows"]))
+    def animal_targets(self, shops, day):
+        milk_shops = sum(1 for s in shops if "MILK" in SHOP_DEMAND.get(s, []))
+        yarn = sum(1 for s in shops if s == "YARN_STORE")
+        cows = min(
+            self.p["cow_cap"], self.p["cows_base"] + self.p["cows_per_milk_shop"] * milk_shops
         )
-        sheep = int(
-            max(
-                self.p["spec_sheep"],
-                min(self.p["sheep_cap"], round(room_sheep) + self.p["spec_sheep"]),
-            )
-        )
+        sheep = min(self.p["sheep_cap"], self.p["sheep_base"] + self.p["sheep_per_yarn"] * yarn)
         if day == 0:
             cows, sheep = self.p["open_cows"], self.p["open_sheep"]
         return {
             "COW": cows if day <= self.p["last_cow_day"] else 0,
             "SHEEP": sheep if day <= self.p["last_sheep_day"] else 0,
-            "GOOSE": geese if day <= self.p["last_goose_day"] else 0,
+            "GOOSE": self.p["geese_cap"] if day <= 18 else 0,
         }
 
+    # ------------------------------------------------------------------ daily plan
     def plan_day(self, obs, me, day):
         tiles = me["tiles"]
         owned = self.owned(tiles)
@@ -390,7 +323,7 @@ class Brain:
         for pos in list(self.roles):
             t = tiles[pos[1]][pos[0]]
             r = self.roles[pos]
-            if r in ("MELON", "STRAWBERRY", "TOMATO"):
+            if r in ("MELON", "STRAWBERRY"):
                 if is_plant(t) and t["crop"] == r:
                     self.planted_once.add(pos)
                 elif pos in self.planted_once or not self.can_plant(r, day):
@@ -411,19 +344,9 @@ class Brain:
                 self.roles[pos] = "MELON"
         # strawberries: sized by the town's appetite
         if self.can_plant("STRAWBERRY", day):
-            opp_straw = 0
-            if len(obs["farms"]) > 1:
-                for row in obs["farms"][1 - obs["player"]]["tiles"]:
-                    for t in row:
-                        if isinstance(t, dict) and t.get("crop") == "STRAWBERRY":
-                            opp_straw += 1
-            drain = shop_drain(shops, "STRAWBERRY")
-            room = (drain - self.p["straw_per_tile"] * opp_straw) / self.p["straw_per_tile"]
-            want = int(
-                max(
-                    self.p["straw_base"],
-                    min(self.p["straw_cap"], round(room) + self.p["straw_base"]),
-                )
+            n_shops = sum(1 for s in shops if "STRAWBERRY" in SHOP_DEMAND.get(s, []))
+            want = min(
+                self.p["straw_cap"], self.p["straw_base"] + self.p["straw_per_shop"] * n_shops
             )
             have = sum(1 for r in self.roles.values() if r == "STRAWBERRY")
             if want > have:
@@ -447,40 +370,6 @@ class Brain:
                 cands.sort(key=lambda p: -shed_dist(p))
                 for pos in cands[: self.p["melon_wave2_tiles"] - have_m]:
                     self.roles[pos] = "MELON"
-        # tomatoes when pizza shops / farmers markets exist and the opponent leaves room
-        t_drain = shop_drain(shops, "TOMATO")
-        self.tomato_hot = t_drain >= self.p["tomato_min_drain"]
-        if self.can_plant("TOMATO", day):
-            opp_tom = 0
-            if len(obs["farms"]) > 1:
-                for row in obs["farms"][1 - obs["player"]]["tiles"]:
-                    for t in row:
-                        if isinstance(t, dict) and t.get("crop") == "TOMATO":
-                            opp_tom += 1
-            want_t = int(
-                max(
-                    0,
-                    min(
-                        self.p["tomato_cap"],
-                        round(
-                            (t_drain - self.p["tomato_per_tile"] * opp_tom)
-                            / self.p["tomato_per_tile"]
-                        ),
-                    ),
-                )
-            )
-            have_t = sum(1 for r in self.roles.values() if r == "TOMATO")
-            if want_t > have_t:
-                cands = [
-                    p
-                    for p in owned
-                    if p not in self.roles
-                    and not is_animal(tiles[p[1]][p[0]])
-                    and not is_empty_structure(tiles[p[1]][p[0]])
-                ]
-                cands.sort(key=shed_dist)
-                for pos in cands[: want_t - have_t]:
-                    self.roles[pos] = "TOMATO"
         # carrots when pet cafes make them hot
         cafes = sum(1 for s in shops if s == "PET_CAFE")
         want_c = min(self.p["max_carrots"], cafes * self.p["carrots_per_cafe"])
@@ -518,11 +407,11 @@ class Brain:
         )
         work *= self.p["walk_factor"]
         units = math.ceil(work / self.p["actions_per_unit"])
-        hands = max(0, units - 1)
-        sched = {int(k): v for k, v in self.p["crew_schedule"].items()}
-        keys = [k for k in sched if k <= day]
-        floor_hands = sched[max(keys)] if keys else 0
-        return min(self.p["max_hands"], max(hands, floor_hands))
+        hands = max(0, min(self.p["max_hands"], units - 1))
+        cash_cap = max(60.0, me["money"] * self.p["hire_cash_frac"])
+        while hands > 0 and hire_cost(hands) > cash_cap:
+            hands -= 1
+        return hands
 
     def crop_budget(self, me, day):
         """Only tend as many crop tiles as the labour left after the animals allows."""
@@ -548,7 +437,7 @@ class Brain:
                     (0, shed_dist((x, y)), (x, y), self.p["crop_actions"].get(t["crop"], 2.6))
                 )
             elif r in CROPS and self.can_plant(r, day):
-                pri = 1 if r in ("MELON", "STRAWBERRY", "TOMATO", "CARROT") else 2
+                pri = 1 if r in ("MELON", "STRAWBERRY", "CARROT") else 2
                 cands.append((pri, shed_dist((x, y)), (x, y), self.p["crop_actions"].get(r, 2.6)))
         cands.sort()
         allowed, used, n, wheat_n = set(), 0.0, 0, 0
@@ -556,7 +445,7 @@ class Brain:
             t = tiles[pos[1]][pos[0]]
             crop = t["crop"] if is_plant(t) else self.role(pos)
             if crop == "WHEAT":
-                if wheat_n >= max(self.p["wheat_tiles_cap"], n_animals) and not is_plant(t):
+                if wheat_n >= self.p["wheat_tiles_cap"] and not is_plant(t):
                     continue
                 wheat_n += 1
             if used + w > budget and n >= self.p["min_crop_tiles"]:
@@ -699,14 +588,10 @@ class Brain:
                 if not is_plant(t) or t["fertilized_until_day"] >= day:
                     continue
                 age = day - t["planted_day"]
-                if (
-                    (t["crop"] == "STRAWBERRY" and 7 <= age <= 15)
-                    or (t["crop"] == "TOMATO" and 5 <= age <= 10)
-                    or (
-                        t["crop"] in ("WHEAT", "CARROT")
-                        and age <= 2
-                        and fert_price < self.p["fert_use_below"]
-                    )
+                if (t["crop"] == "STRAWBERRY" and 8 <= age <= 16) or (
+                    t["crop"] in ("WHEAT", "CARROT")
+                    and age <= 2
+                    and fert_price < self.p["fert_use_below"]
                 ):
                     fert_keep += 1
         sells = []
@@ -763,9 +648,7 @@ class Brain:
             cost = LAND_PRICES[n_quads - 1]
             short_of_land = len(empties) - pending_roles < self.p["land_min_free"]
             margin = 0 if short_of_land else self.p["land_cash_margin"] * n_quads
-            allowed = n_quads < self.p["max_quadrants"] or (
-                self.p["land_overflow"] and short_of_land and pending_roles > 0
-            )
+            allowed = n_quads < self.p["max_quadrants"] or (short_of_land and pending_roles > 0)
             if (
                 allowed
                 and money - cost >= reserve + margin
@@ -785,7 +668,7 @@ class Brain:
         if straw_short > 0 and day > 0:
             animal_money = money - self.p["seed_cash_share"] * max(0.0, money - reserve)
         if hour >= 1 or day == 0:
-            targets = self.animal_targets(obs, day)
+            targets = self.animal_targets(shops, day)
             candidates = [p for p in empties if p not in self.roles]
             candidates.sort(key=shed_dist)
             bought_today = getattr(self, "animal_buys_today", (day, 0))
@@ -815,7 +698,7 @@ class Brain:
                 bought_today += want
                 self.animal_buys_today = (day, bought_today)
         # 5) seeds
-        for crop in ("MELON", "STRAWBERRY", "TOMATO", "CARROT", "WHEAT"):
+        for crop in ("MELON", "STRAWBERRY", "CARROT", "WHEAT"):
             if not self.can_plant(crop, day):
                 continue
             n_tiles = sum(
@@ -892,16 +775,15 @@ class Brain:
             elif is_plant(t):
                 crop, age = t["crop"], day - t["planted_day"]
                 cd = CROPS.get(crop)
-                if cd is None:  # unknown crop
+                if cd is None:  # tomato - we never plant it
                     if t["yield_units"] > 0:
                         add(pos, ["HARVEST"], 60)
                     elif not t["watered_today"] and not final_day:
                         add(pos, ["WATER"], 50)
                     continue
                 if cd["ongoing"]:
-                    ticks = PROD_AGES[crop]
                     if t["yield_units"] > 0:
-                        urgent = t["yield_units"] >= 2 or final_day or hour >= 18 or age > ticks[-1]
+                        urgent = t["yield_units"] >= 2 or final_day or hour >= 18 or age >= 16
                         add(pos, ["HARVEST"], 74 if urgent else 52)
                     if final_day:
                         continue
@@ -910,19 +792,14 @@ class Brain:
                             add(pos, ["DIG"], 30)
                         continue
                     if not t["watered_today"]:
-                        # an unwatered production tick forfeits the fertiliser doubling
-                        base_w = 86 if age in ticks else (70 if age >= ticks[0] - 1 else 60)
                         add(
                             pos,
                             ["WATER"],
-                            (90 + hour // 2)
-                            if t["consecutive_unwatered"] >= 1
-                            else (base_w + hour),
+                            (90 + hour // 2) if t["consecutive_unwatered"] >= 1 else (60 + hour),
                         )
-                    if self.ongoing_fert_now(t, day):
+                    if self.straw_fert_now(t, day):
                         fert_targets += 1
-                        primary = age in FERT_PRIMARY[crop]
-                        add(pos, ["FERTILIZE"], 78 if primary else 60, need="FERTILIZER")
+                        add(pos, ["FERTILIZE"], 76 if age in straw_ages else 58, need="FERTILIZER")
                     continue
                 if age >= cd["first"] and t["yield_units"] > 0:
                     ready = age >= cd["harvest_age"] and (t["watered_today"] or crop == "MELON")
@@ -932,11 +809,10 @@ class Brain:
                 if final_day:
                     continue
                 if not t["watered_today"]:
-                    base_w = 82 if (crop == "MELON" and age >= 6) else 60
                     add(
                         pos,
                         ["WATER"],
-                        (90 + hour // 2) if t["consecutive_unwatered"] >= 1 else (base_w + hour),
+                        (90 + hour // 2) if t["consecutive_unwatered"] >= 1 else (60 + hour),
                     )
                 if (
                     use_fert_staple
@@ -1173,5 +1049,5 @@ def agent(obs, config=None):
     try:
         return brain.act(obs)
     except Exception as exc:  # noqa: BLE001 - never crash the episode
-        print(f"[hextex-main] step {obs.get('step')} error: {exc!r}")
+        print(f"[hextex_v11] step {obs.get('step')} error: {exc!r}")
         return {"farmer": ["PASS"], "hands": [], "market": []}

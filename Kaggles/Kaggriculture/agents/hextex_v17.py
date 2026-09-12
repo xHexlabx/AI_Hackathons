@@ -1,4 +1,4 @@
-"""HexTex Kaggriculture agent v15 - tomatoes for pizza/farmers-market demand (an untouched hinge-priced pot), generic ongoing-crop logic.
+"""HexTex Kaggriculture agent v17 - v15 + hedged herd (sheep/cows like the meta line) and land only for animals after day 6.
 
 What the ladder taught us (see notes/research.md, section 7):
   * Town shops create the money: every shop instance drains 6 units/day of each product it wants
@@ -28,8 +28,8 @@ PARAMS = {
     "open_wheat": 8,
     "open_hands": 6,
     # animals: target = (town drain - opponent's visible supply) / yield + speculative base
-    "spec_cows": 3,
-    "spec_sheep": 3,
+    "spec_cows": 4,
+    "spec_sheep": 5,
     "milk_per_cow": 1.5,
     "wool_per_sheep": 1.33,
     "cow_cap": 10,
@@ -62,6 +62,7 @@ PARAMS = {
     "tomato_per_tile": 0.7,
     # land & cash
     "land_day": 8,  # from this day on, buy land whenever cash allows
+    "land_min_day": 6,  # never before this day (cash is for animals and seeds first)
     "max_quadrants": 3,
     "land_overflow": False,  # allow a 4th quadrant when roles are waiting for free tiles
     "last_land_day": 18,
@@ -757,9 +758,9 @@ class Brain:
         n_quads = len(me["unlocked_quadrants"])
         # 3) land: when free tiles run short (roles waiting) or cash is plentiful
         pending_roles = sum(
-            1 for p, r in self.roles.items() if is_free(tiles[p[1]][p[0]]) and r != "WHEAT"
+            1 for p, r in self.roles.items() if is_free(tiles[p[1]][p[0]]) and r in ANIMALS
         )
-        if hour >= 1 and n_quads < 4 and day <= self.p["last_land_day"]:
+        if hour >= 1 and n_quads < 4 and self.p["land_min_day"] <= day <= self.p["last_land_day"]:
             cost = LAND_PRICES[n_quads - 1]
             short_of_land = len(empties) - pending_roles < self.p["land_min_free"]
             margin = 0 if short_of_land else self.p["land_cash_margin"] * n_quads
@@ -1173,5 +1174,5 @@ def agent(obs, config=None):
     try:
         return brain.act(obs)
     except Exception as exc:  # noqa: BLE001 - never crash the episode
-        print(f"[hextex-main] step {obs.get('step')} error: {exc!r}")
+        print(f"[hextex_v17] step {obs.get('step')} error: {exc!r}")
         return {"farmer": ["PASS"], "hands": [], "market": []}

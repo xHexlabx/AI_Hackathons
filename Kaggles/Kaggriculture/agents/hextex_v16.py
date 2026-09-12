@@ -1,4 +1,4 @@
-"""HexTex Kaggriculture agent v15 - tomatoes for pizza/farmers-market demand (an untouched hinge-priced pot), generic ongoing-crop logic.
+"""HexTex Kaggriculture agent v16 - plan on EXPECTED end-of-season demand (shop draws are random with replacement), minus the opponent's visible supply.
 
 What the ladder taught us (see notes/research.md, section 7):
   * Town shops create the money: every shop instance drains 6 units/day of each product it wants
@@ -29,7 +29,10 @@ PARAMS = {
     "open_hands": 6,
     # animals: target = (town drain - opponent's visible supply) / yield + speculative base
     "spec_cows": 3,
-    "spec_sheep": 3,
+    "spec_sheep": 2,
+    "spec_geese": 0,
+    "demand_factor": 0.7,  # share of the expected end-of-season drain we plan to supply (after the opponent)
+    "straw_spec": 8,
     "milk_per_cow": 1.5,
     "wool_per_sheep": 1.33,
     "cow_cap": 10,
@@ -227,6 +230,21 @@ def shop_drain(shops, item):
     return total
 
 
+UNLOCK_DAYS = (3, 6, 9, 12, 15, 18, 21, 24)  # one shop instance each, drawn with replacement
+
+
+def expected_drain(shops, item, day):
+    """Current drain plus the expectation over the shop unlocks still to come."""
+    total = float(shop_drain(shops, item))
+    remaining = sum(1 for d in UNLOCK_DAYS if d > day)
+    remaining = min(remaining, 8 - len(shops))
+    per_draw = 0.0
+    for wants in SHOP_DEMAND.values():
+        if item in wants:
+            per_draw += (12 if len(wants) == 1 else 6) / len(SHOP_DEMAND)
+    return total + remaining * per_draw
+
+
 # ---------------------------------------------------------------------------- helpers
 def fib(n):
     a, b = 1, 1
@@ -353,17 +371,18 @@ class Brain:
                 for t in row:
                     if isinstance(t, dict) and t.get("animal") == "GOOSE":
                         opp_geese += 1
-        egg_drain = shop_drain(shops, "EGG")
+        f = self.p["demand_factor"]
+        egg_drain = f * expected_drain(shops, "EGG", day)
         room_geese = (egg_drain - self.p["eggs_per_goose"] * opp_geese) / self.p["eggs_per_goose"]
         geese = 0
         if egg_drain >= self.p["min_egg_drain"]:
-            geese = int(max(0, min(self.p["geese_cap"], round(room_geese))))
-        room_cows = (shop_drain(shops, "MILK") - self.p["milk_per_cow"] * opp_cows) / self.p[
-            "milk_per_cow"
-        ]
-        room_sheep = (shop_drain(shops, "WOOL") - self.p["wool_per_sheep"] * opp_sheep) / self.p[
-            "wool_per_sheep"
-        ]
+            geese = int(max(self.p["spec_geese"], min(self.p["geese_cap"], round(room_geese))))
+        room_cows = (
+            f * expected_drain(shops, "MILK", day) - self.p["milk_per_cow"] * opp_cows
+        ) / self.p["milk_per_cow"]
+        room_sheep = (
+            f * expected_drain(shops, "WOOL", day) - self.p["wool_per_sheep"] * opp_sheep
+        ) / self.p["wool_per_sheep"]
         cows = int(
             max(self.p["spec_cows"], min(self.p["cow_cap"], round(room_cows) + self.p["spec_cows"]))
         )
@@ -417,12 +436,12 @@ class Brain:
                     for t in row:
                         if isinstance(t, dict) and t.get("crop") == "STRAWBERRY":
                             opp_straw += 1
-            drain = shop_drain(shops, "STRAWBERRY")
+            drain = self.p["demand_factor"] * expected_drain(shops, "STRAWBERRY", day)
             room = (drain - self.p["straw_per_tile"] * opp_straw) / self.p["straw_per_tile"]
             want = int(
                 max(
                     self.p["straw_base"],
-                    min(self.p["straw_cap"], round(room) + self.p["straw_base"]),
+                    min(self.p["straw_cap"], round(room) + self.p["straw_spec"]),
                 )
             )
             have = sum(1 for r in self.roles.values() if r == "STRAWBERRY")
@@ -448,7 +467,7 @@ class Brain:
                 for pos in cands[: self.p["melon_wave2_tiles"] - have_m]:
                     self.roles[pos] = "MELON"
         # tomatoes when pizza shops / farmers markets exist and the opponent leaves room
-        t_drain = shop_drain(shops, "TOMATO")
+        t_drain = self.p["demand_factor"] * expected_drain(shops, "TOMATO", day)
         self.tomato_hot = t_drain >= self.p["tomato_min_drain"]
         if self.can_plant("TOMATO", day):
             opp_tom = 0
@@ -483,9 +502,18 @@ class Brain:
                     self.roles[pos] = "TOMATO"
         # carrots when pet cafes make them hot
         cafes = sum(1 for s in shops if s == "PET_CAFE")
-        want_c = min(self.p["max_carrots"], cafes * self.p["carrots_per_cafe"])
+        opp_car = 0
+        if len(obs["farms"]) > 1:
+            for row in obs["farms"][1 - obs["player"]]["tiles"]:
+                for t in row:
+                    if isinstance(t, dict) and t.get("crop") == "CARROT":
+                        opp_car += 1
+        c_drain = self.p["demand_factor"] * expected_drain(shops, "CARROT", day)
+        want_c = int(
+            max(0, min(self.p["max_carrots"], round(c_drain - opp_car)))
+        )  # ~1 carrot/tile/day
         if prices.get("CARROT", 0) >= self.p["carrot_hot_price"]:
-            want_c = max(want_c, min(self.p["max_carrots"], cafes * 12))
+            want_c = max(want_c, min(self.p["max_carrots_hot"], cafes * 12))
         have_c = sum(1 for r in self.roles.values() if r == "CARROT")
         if want_c > have_c and self.can_plant("CARROT", day):
             cands = [p for p in owned if p not in self.roles and not is_animal(tiles[p[1]][p[0]])]
@@ -1173,5 +1201,5 @@ def agent(obs, config=None):
     try:
         return brain.act(obs)
     except Exception as exc:  # noqa: BLE001 - never crash the episode
-        print(f"[hextex-main] step {obs.get('step')} error: {exc!r}")
+        print(f"[hextex_v16] step {obs.get('step')} error: {exc!r}")
         return {"farmer": ["PASS"], "hands": [], "market": []}

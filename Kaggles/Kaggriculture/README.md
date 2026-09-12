@@ -39,14 +39,14 @@ uv run kaggle competitions submit -c kaggriculture -f main.py -m "hextex v6"
 uv run kaggle competitions submissions -c kaggriculture
 ```
 
-## 🧠 Strategy (v10 — "dairy & berries")
+## 🧠 Strategy (v15 — "dairy & berries + niches")
 
 เงินในเกมนี้มาจาก **ร้านค้าในเมือง**: ทุกร้านดูดสินค้าที่ต้องการออกจากตลาด 6 หน่วย/วัน ทำให้ของ premium ที่ผลิตน้อยกว่าที่เมืองดูดราคาพุ่ง ($250–340) ส่วนของที่ล้นตลาดดิ่งลง $1
 
 1. **Day 0** — วัว 3 + แกะ 1 ติดโรงเก็บ, melon 8 บน tile ไกล, wheat 8, จ้าง 6 คน (ใช้เงินเกือบหมด)
-2. **Day 1–12** — ขายปุ๋ย/ข้าวสาลีทันทีเป็น cash flow, ซื้อวัว/แกะเพิ่มวันละ ≤2 ตัวควบคู่กับเมล็ดสตรอว์เบอร์รี่ (แบ่งเงินครึ่ง-ครึ่ง), เป้าหมายสัตว์/สตรอว์เบอร์รี่ปรับตามร้านที่เปิด (`SHOP_DEMAND`)
+2. **Day 1–12** — ขายปุ๋ย/ข้าวสาลีทันทีเป็น cash flow, ซื้อวัว/แกะ/ห่านเพิ่มวันละ ≤2 ตัวควบคู่กับเมล็ดสตรอว์เบอร์รี่ (แบ่งเงินครึ่ง-ครึ่ง); **เป้าหมายทุกสินค้า = (drain ของร้านที่เปิด − supply ของคู่แข่งที่มองเห็น) / yield** → เลี้ยงวัวเมื่อมีร้านนม, แกะเมื่อมี yarn store, ห่านเมื่อมี bakery/brunch, ปลูกมะเขือเทศเมื่อมี pizza/farmers market, แครอทเมื่อมี pet café
 3. **Day 10** — เท melon wave แรก; ปลูก wave สองถ้าราคายัง ≥ $130
-4. **Day 6–14** — สตรอว์เบอร์รี่ 24 + 6/ร้าน (สูงสุด 48 แปลง) ใส่ปุ๋ยจากวัวตอนอายุ 10 และ 14 (ผลผลิต ×2)
+4. **Day 5–13** — สตรอว์เบอร์รี่ตาม demand (สูงสุด 44 แปลง) ใส่ปุ๋ยตอนอายุ **9 และ 13** (production tick เกิดตอนสิ้นวันอายุ 9/11/13/15 → ปุ๋ย 1 หน่วยคลุม 2 tick = 8 ผล/ต้น)
 5. **ทุกเทิร์น** — ของ premium ขายเมื่อราคา ≥ reserve (ลดลงตาม supply รวมของเราและคู่แข่งที่มองเห็นได้), ของ staple ขายทันที, บังคับขายทุกอย่างตั้งแต่ 21:00 กัน shed ล้น
 6. **Day 26–29** — reserve ลดเป็น 0 เชิงเส้น (liquidation) และขายให้หมดก่อน step 718
 
@@ -64,4 +64,8 @@ uv run kaggle competitions submissions -c kaggriculture
 | 2026-09-12 | v6 | ~52k | ~30k | zone-based feeding, labour-capped crops, sweep-tuned · ladder game: 45k vs 94k ❌ |
 | 2026-09-12 | v7 | 102k | 89k | 🔄 new economy: cows + strawberries sized by town shops, reserve-price selling |
 | 2026-09-12 | v8–v9 | – | 70–74k | all-in opening, demand-sized herds, opponent-aware reserve (no gain vs Bea) |
-| 2026-09-12 | **v10** | **90k** (vs v6: 112k, vs rancher_rita: 88k) | 68k | parallel reinvestment, melon 2nd wave, wheat cap · beats v7 100% · still 0-8 vs broker_bea |
+| 2026-09-12 | v10 | 90k (vs v6: 112k, vs rancher_rita: 88k) | 68k | parallel reinvestment, melon 2nd wave, wheat cap · beats v7 100% · 0-8 vs broker_bea |
+| 2026-09-12 | v11–v13 | – | – | strawberry fertiliser timing fixed (ticks fire at END of ages 9/11/13/15 → fertilise at 9 & 13), continuous melons, 3 quadrants |
+| 2026-09-12 | v14 | – | 97k | demand-aware strawberries (town drain − opponent tiles), geese when bakeries/brunch spots exist · 100% vs v12 |
+| 2026-09-12 | **v15** | **124k** (vs v10: 91k, 100% win) | – | + tomatoes for pizza/farmers-market demand · **vs broker_bea 81k vs 96k, 21% win (24 games)** |
+| 2026-09-12 | v16–v17 | – | – | ❌ expected-demand planning (over-invests day 0, concedes markets) / herd hedge — no gain, not promoted |

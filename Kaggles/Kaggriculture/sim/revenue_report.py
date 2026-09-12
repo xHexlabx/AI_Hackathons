@@ -47,6 +47,12 @@ def main() -> None:
             cost = 0.0
             sells = []
             hires_now = 0
+            # items dropped into the shed this turn are sellable in the same turn
+            dropped: Counter = Counter()
+            invs = steps[s][p]["observation"]["private"].get("inventories", [])
+            for ui, a in enumerate([act.get("farmer")] + list(act.get("hands") or [])):
+                if a and a[0] == "DROP" and ui < len(invs):
+                    dropped.update(invs[ui])
             for o in act.get("market") or []:
                 if not o:
                     continue
@@ -73,8 +79,9 @@ def main() -> None:
                     cost += c
                     spend["hires"] += c
                 elif o[0] == "SELL":
-                    shed = steps[s][p]["observation"]["private"]["shed"]
-                    q = min(int(o[2]), shed.get(o[1], 0))
+                    priv = steps[s][p]["observation"]["private"]
+                    avail = priv["shed"].get(o[1], 0) + dropped.get(o[1], 0)
+                    q = min(int(o[2]), avail)
                     if q > 0:
                         sells.append((o[1], q * prices.get(o[1], 1)))
             delta = nxt["money"] - farm["money"] + cost

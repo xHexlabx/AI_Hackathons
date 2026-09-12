@@ -159,3 +159,30 @@ Take-aways for the next iteration:
 2. Replant melons after the day-10 dump while the price is >= ~$130 (second wave ~$6k).
 3. Consider the wheat arbitrage (buy when cheap, sell as the town drains) and buying feed instead of growing it.
 4. Tune against `broker_bea`, not against `starter`; the objective is win-rate, not bank.
+
+## 8. Round 2 (2026-09-12): ladder-meta benchmark loop
+
+Method: every change is benchmarked with `sim/run.py <agent> agents/reference/broker_bea.py -n 24 --seed 1000`
+(same seeds for every version; SE of the mean ~3k, so differences < 5k are noise) plus `sim/sweep.py` one-at-a-time.
+
+| version | vs Bea (mean / Bea mean / win) | change | verdict |
+|---|---|---|---|
+| v10 | 63k / 99k / 0% | baseline | |
+| v11 | 62k / 87k / 6% | strawberry fert logistics (wrong ages), continuous melons, 3 quads | no gain |
+| v12 | 69k / 93k / 6% | herds = town drain − opponent supply, crew schedule (12 hands by day 10) | +6k |
+| v13 | 69k / 82k / 12% | **fertiliser at ages 9 & 13** (ticks fire at END of ages 9/11/13/15) | yield 7.4/plant (Bea 6.8) |
+| v14 | 81k / 97k / 12% | demand-aware strawberry tiles, geese for egg demand, strict 3 quadrants | +12k, mirror 97k |
+| **v15** | **81k / 96k / 21%** | tomatoes for pizza / farmers-market demand | best; promoted to main.py |
+| v16 | 60k / 92k / 0% | plan on EXPECTED end-of-season demand | ❌ over-invests day 0, starves, concedes |
+| v17 | 76k / 93k / 12% | v15 + hedged herd (5 sheep, 4 cows), land after day 6 | ❌ no gain |
+
+Per-seed analysis (v15, 24 seeds): we win games with 2-3 pet cafés (carrots 200-335 units) and lose big
+(−45k) in games with yarn store(s) + 2-3 milk shops where Bea's fixed 8 cows / 6 sheep meet strong demand
+(Bea 146-150k). Yarn stores that unlock late (day 18-24) still pay Bea ~$25k because its sheep already exist;
+our demand-driven herd arrives too late. Milk/wool/strawberry all crash to $1 by day 18-24 when both flood.
+
+Remaining gap (6-seed aggregate, $/game): strawberry +18k, milk +12k, wool +6k for Bea; eggs +7k, melons +3k,
+carrots +2k for us. Walking is still 54-57% of actions for both.
+
+Ideas not yet tried: daily route planning (cut walking), melon dump timing on day 10 (sell before Bea),
+marginal-revenue planner instead of "fill the gap" targets, wheat buy-low/sell-high like Bea.
